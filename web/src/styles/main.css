@@ -1,0 +1,23 @@
+:root {
+  --c-primary: #1a5fb4;
+  --c-bg: #fafafa;
+  --c-text: #1f1f1f;
+  --c-muted: #666;
+  --c-border: #e5e5e5;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+  background: var(--c-bg);
+  color: var(--c-text);
+}
+
+code {
+  background: #f0f0f0;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 13px;
+}
