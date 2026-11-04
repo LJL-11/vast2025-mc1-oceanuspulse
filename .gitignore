@@ -9,7 +9,7 @@ node_modules/
 dist/
 
 # pipeline 生成的数据（不进库，由脚本产出）
-data/processed/*.json
+data/processed/**
 !data/processed/.gitkeep
 
 # 系统杂物

@@ -44,11 +44,18 @@ vast2025-mc1/
 
 ```bash
 # 数据工程
-cd pipeline && pip install -r requirements.txt
+python -m pip install -r pipeline/requirements.txt
+python -m pipeline.run
+python -m pipeline.validate
+
+# 模块三独立分析（生成 rising_star.json）
+python pipeline/features.py
 
 # 前端（Node.js ≥ 18）
 cd web && npm install && npm run dev
 ```
+
+数据工程交付与实际发现见 [交接说明](docs/05-数据工程交接.md)，前端字段和接入示例见 [数据契约](docs/06-前端数据契约.md)。v1.1 的影响证据、历年指标和规则敏感性见 [优化说明](docs/07-数据工程优化与稳健性.md)。完整运行会生成 `data/processed/` 的 84 份 JSON；生成物不入库。
 
 ## 协作规范
 
