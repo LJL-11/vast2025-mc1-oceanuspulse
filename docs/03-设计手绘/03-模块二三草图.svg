@@ -1,0 +1,81 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 620" width="900" height="620">
+  <rect width="900" height="620" fill="#FBF8F0"/>
+  <text x="40" y="38" font-family="'Segoe Print','Comic Sans MS','Kaiti SC',cursive" font-size="20" fill="#17324D">第 3 轮 · 模块二 / 模块三布局草图 / 2026-11-06</text>
+  <text x="40" y="60" font-family="'Segoe Print','Comic Sans MS','Kaiti SC',cursive" font-size="13" fill="#718396">关键决策：桑基图有双向环会报错 → 改流向矩阵；模块三补图表容器时序修复</text>
+
+  <line x1="450" y1="76" x2="450" y2="590" stroke="#C8D4E0" stroke-width="1.5" stroke-dasharray="6 5"/>
+  <text x="38" y="90" font-family="'Segoe Print','Comic Sans MS','Kaiti SC',cursive" font-size="15" fill="#17324D">模块二 · 流派传播</text>
+  <text x="470" y="90" font-family="'Segoe Print','Comic Sans MS','Kaiti SC',cursive" font-size="15" fill="#17324D">模块三 · 新星预测</text>
+
+  <rect x="38" y="102" width="392" height="176" rx="10" fill="#FFFFFF" stroke="#17324D" stroke-width="2"/>
+  <text x="54" y="124" font-family="'Segoe Print','Comic Sans MS','Kaiti SC',cursive" font-size="13" fill="#17324D">年度趋势 · 26 流派 × 66 年</text>
+  <g stroke="#E4EBF2" stroke-width="1"><path d="M60 170 L412 170 M60 210 L412 210 M60 250 L412 250"/></g>
+  <path d="M60 260 Q140 258 190 250 Q220 220 250 232 Q290 180 320 155 Q350 190 370 240 Q390 255 412 258" fill="none" stroke="#E8734A" stroke-width="2.5"/>
+  <path d="M60 262 Q200 260 280 246 Q330 220 412 230" fill="none" stroke="#5B8FF9" stroke-width="1.5"/>
+  <text x="54" y="272" font-family="'Segoe Print','Comic Sans MS','Kaiti SC',cursive" font-size="10" fill="#718396">指标切换：外向 / 内向 / 5年滚动均值 / 覆盖率</text>
+
+  <rect x="38" y="292" width="190" height="180" rx="10" fill="#FFFFFF" stroke="#17324D" stroke-width="2"/>
+  <text x="52" y="314" font-family="'Segoe Print','Comic Sans MS','Kaiti SC',cursive" font-size="12" fill="#17324D">流向矩阵（纵=来源）</text>
+  <g stroke="#DCE5EE" stroke-width="1">
+    <path d="M62 334 L208 334 M62 358 L208 358 M62 382 L208 382 M62 406 L208 406 M62 430 L208 430 M62 454 L208 454"/>
+    <path d="M62 334 L62 454 M98 334 L98 454 M134 334 L134 454 M170 334 L170 454 M208 334 L208 454"/>
+  </g>
+  <g opacity="0.75">
+    <rect x="63" y="359" width="34" height="23" fill="#E8734A"/>
+    <rect x="99" y="383" width="34" height="23" fill="#79BFB0"/>
+    <rect x="135" y="335" width="34" height="23" fill="#F2B447"/>
+    <rect x="171" y="407" width="36" height="23" fill="#D6EAE5"/>
+  </g>
+  <text x="52" y="466" font-family="'Segoe Print','Comic Sans MS','Kaiti SC',cursive" font-size="10" fill="#718396">点格子 → 原始边 ID 证据</text>
+
+  <rect x="240" y="292" width="190" height="180" rx="10" fill="#FFFFFF" stroke="#17324D" stroke-width="2"/>
+  <text x="254" y="314" font-family="'Segoe Print','Comic Sans MS','Kaiti SC',cursive" font-size="12" fill="#17324D">五类关系堆叠面积</text>
+  <path d="M254 452 Q290 448 310 420 Q335 350 355 340 Q380 390 400 446 L416 452 Z" fill="#E8734A" opacity="0.55"/>
+  <path d="M254 452 Q300 450 330 430 Q360 400 416 448 L416 452 Z" fill="#5B8FF9" opacity="0.55"/>
+  <path d="M254 452 Q320 449 360 442 Q390 438 416 450 L416 452 Z" fill="#2A9D8F" opacity="0.6"/>
+  <text x="254" y="466" font-family="'Segoe Print','Comic Sans MS','Kaiti SC',cursive" font-size="10" fill="#718396">借鉴 / 翻唱 / 采样 / 引用 / 歌词</text>
+
+  <rect x="38" y="486" width="392" height="96" rx="8" fill="#FFF2C4" stroke="#D9B95C" stroke-width="1.5"/>
+  <text x="54" y="508" font-family="'Segoe Print','Comic Sans MS','Kaiti SC',cursive" font-size="13" fill="#7A5B12">便签 · 本轮否决</text>
+  <text x="54" y="530" font-family="'Segoe Print','Comic Sans MS','Kaiti SC',cursive" font-size="11" fill="#6A5316">× 桑基图：流派间双向环，ECharts 直接报 cycle 错</text>
+  <text x="54" y="550" font-family="'Segoe Print','Comic Sans MS','Kaiti SC',cursive" font-size="11" fill="#6A5316">√ 热力矩阵 + 净流量聚合 + 自流排除</text>
+  <text x="54" y="570" font-family="'Segoe Print','Comic Sans MS','Kaiti SC',cursive" font-size="11" fill="#6A5316">√ 流入 / 流出分开统计，别把借鉴者当来源</text>
+
+  <rect x="470" y="102" width="390" height="130" rx="10" fill="#FFFFFF" stroke="#17324D" stroke-width="2"/>
+  <text x="486" y="124" font-family="'Segoe Print','Comic Sans MS','Kaiti SC',cursive" font-size="13" fill="#17324D">Top3 预测卡片 × 3</text>
+  <g stroke-width="1.6" fill="#FFFFFF">
+    <rect x="486" y="136" width="116" height="82" rx="6" stroke="#E8734A"/>
+    <rect x="610" y="136" width="116" height="82" rx="6" stroke="#F2B447"/>
+    <rect x="734" y="136" width="110" height="82" rx="6" stroke="#5B8FF9"/>
+  </g>
+  <g font-family="'Segoe Print','Comic Sans MS','Kaiti SC',cursive" font-size="10" fill="#4A5C6E">
+    <text x="494" y="154">#1 79.84</text><text x="618" y="154">#2 70.82</text><text x="742" y="154">#3 64.71</text>
+    <text x="494" y="174">Brine Choir</text><text x="618" y="174">Selkie's</text><text x="742" y="174">Tidal</text>
+  </g>
+  <g stroke="#5B8FF9" stroke-width="4" stroke-linecap="round">
+    <path d="M494 190 L580 190"/><path d="M618 190 L700 190"/><path d="M742 190 L820 190"/>
+  </g>
+  <text x="486" y="226" font-family="'Segoe Print','Comic Sans MS','Kaiti SC',cursive" font-size="10" fill="#718396">综合分 / 模型概率 / Bootstrap / 证据链 / 成员</text>
+
+  <rect x="470" y="246" width="190" height="150" rx="10" fill="#FFFFFF" stroke="#17324D" stroke-width="2"/>
+  <text x="486" y="268" font-family="'Segoe Print','Comic Sans MS','Kaiti SC',cursive" font-size="12" fill="#17324D">三人职业轨迹</text>
+  <path d="M486 380 Q530 370 560 330 Q600 290 646 278" fill="none" stroke="#1A5FB4" stroke-width="2"/>
+  <path d="M486 382 Q540 378 646 376" fill="none" stroke="#E67E22" stroke-width="1.5" stroke-dasharray="4 3"/>
+  <text x="486" y="392" font-family="'Segoe Print','Comic Sans MS','Kaiti SC',cursive" font-size="10" fill="#718396">实线累计上榜 / 虚线累计登榜</text>
+
+  <rect x="670" y="246" width="190" height="150" rx="10" fill="#FFFFFF" stroke="#17324D" stroke-width="2"/>
+  <text x="686" y="268" font-family="'Segoe Print','Comic Sans MS','Kaiti SC',cursive" font-size="12" fill="#17324D">能力雷达（6 维）</text>
+  <path d="M765 300 L805 322 L795 370 L735 370 L725 322 Z" fill="none" stroke="#C8D4E0" stroke-width="1.5"/>
+  <path d="M765 312 L790 326 L784 360 L742 358 L738 326 Z" fill="#5B8FF9" opacity="0.25" stroke="#1A5FB4" stroke-width="1.5"/>
+  <text x="686" y="392" font-family="'Segoe Print','Comic Sans MS','Kaiti SC',cursive" font-size="10" fill="#718396">导师 / 动量 / 质量 / 合作 / 影响 / 厂牌</text>
+
+  <rect x="470" y="410" width="390" height="84" rx="10" fill="#FFFFFF" stroke="#17324D" stroke-width="2"/>
+  <text x="486" y="432" font-family="'Segoe Print','Comic Sans MS','Kaiti SC',cursive" font-size="12" fill="#17324D">综合分排行 + 统计检验面板</text>
+  <text x="486" y="454" font-family="'Segoe Print','Comic Sans MS','Kaiti SC',cursive" font-size="10" fill="#718396">5 折 AUC · Mann–Whitney U + BH-FDR · Logistic 系数</text>
+  <text x="486" y="474" font-family="'Segoe Print','Comic Sans MS','Kaiti SC',cursive" font-size="10" fill="#718396">主动标注：AUC 0.625 只用于排序，不是成名概率</text>
+
+  <rect x="470" y="508" width="390" height="74" rx="8" fill="#EAF3F8" stroke="#7FA8C4" stroke-width="1.5"/>
+  <text x="486" y="530" font-family="'Segoe Print','Comic Sans MS','Kaiti SC',cursive" font-size="12" fill="#17324D">修掉的 bug（答辩可讲）</text>
+  <text x="486" y="550" font-family="'Segoe Print','Comic Sans MS','Kaiti SC',cursive" font-size="10" fill="#2C435C">图表 div 在 v-else 内，loading 未结束就 init → 空白</text>
+  <text x="486" y="568" font-family="'Segoe Print','Comic Sans MS','Kaiti SC',cursive" font-size="10" fill="#2C435C">改为 loading=false → nextTick → init + 切换时派发 resize</text>
+</svg>

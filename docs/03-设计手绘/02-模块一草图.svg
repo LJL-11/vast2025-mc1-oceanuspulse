@@ -1,0 +1,72 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 620" width="900" height="620">
+  <rect width="900" height="620" fill="#FBF8F0"/>
+  <text x="40" y="38" font-family="'Segoe Print','Comic Sans MS','Kaiti SC',cursive" font-size="20" fill="#17324D">第 2 轮 · 模块一「影响力溯源」布局草图 / 2026-11-05</text>
+  <text x="40" y="60" font-family="'Segoe Print','Comic Sans MS','Kaiti SC',cursive" font-size="13" fill="#718396">关键决策：浏览器不跑力仿真 → 用 Python 预计算 spring layout，前端只缩放/拖拽/高亮</text>
+
+  <rect x="38" y="82" width="560" height="300" rx="12" fill="#FFFFFF" stroke="#17324D" stroke-width="2"/>
+  <rect x="42" y="86" width="552" height="292" rx="11" fill="none" stroke="#8FA6BA" stroke-width="1" opacity="0.6"/>
+  <text x="56" y="108" font-family="'Segoe Print','Comic Sans MS','Kaiti SC',cursive" font-size="14" fill="#17324D">两跳关系网络 · 269 节点 / 546 边</text>
+
+  <g stroke="#C8D4E0" stroke-width="1" fill="none">
+    <path d="M300 250 L210 190 M300 250 L390 175 M300 250 L420 260 M300 250 L230 320 M300 250 L360 330 M210 190 L150 150 M210 190 L180 250 M390 175 L450 140 M390 175 L440 215 M420 260 L480 290 M230 320 L170 350 M360 330 L400 360"/>
+  </g>
+  <g stroke="#E8734A" stroke-width="1.8" fill="none" stroke-dasharray="5 3">
+    <path d="M150 150 L210 190 M450 140 L390 175 M480 290 L420 260"/>
+  </g>
+  <g stroke-width="1.5" stroke="#FFFFFF">
+    <circle cx="300" cy="250" r="16" fill="#2A9D8F"/>
+    <circle cx="210" cy="190" r="9" fill="#5B8FF9"/><circle cx="390" cy="175" r="9" fill="#5B8FF9"/>
+    <circle cx="420" cy="260" r="8" fill="#7262FD"/><circle cx="230" cy="320" r="8" fill="#7262FD"/>
+    <circle cx="360" cy="330" r="8" fill="#E8734A"/><circle cx="150" cy="150" r="7" fill="#5B8FF9"/>
+    <circle cx="180" cy="250" r="7" fill="#2A9D8F"/><circle cx="450" cy="140" r="7" fill="#5B8FF9"/>
+    <circle cx="440" cy="215" r="7" fill="#2A9D8F"/><circle cx="480" cy="290" r="7" fill="#5B8FF9"/>
+    <circle cx="170" cy="350" r="7" fill="#9AA7B4"/><circle cx="400" cy="360" r="7" fill="#9AA7B4"/>
+  </g>
+  <text x="322" y="254" font-family="'Segoe Print','Comic Sans MS','Kaiti SC',cursive" font-size="12" fill="#17324D">Sailor Shift</text>
+  <rect x="480" y="100" width="100" height="24" rx="6" fill="#F4F7FA" stroke="#C8D4E0"/>
+  <text x="488" y="117" font-family="'Segoe Print','Comic Sans MS','Kaiti SC',cursive" font-size="11" fill="#718396">重置视图 ↺</text>
+  <text x="56" y="370" font-family="'Segoe Print','Comic Sans MS','Kaiti SC',cursive" font-size="11" fill="#718396">滚轮缩放 · 拖拽 · 悬停聚焦邻域 · 点击选中</text>
+
+  <rect x="618" y="82" width="240" height="140" rx="10" fill="#FFFFFF" stroke="#17324D" stroke-width="2"/>
+  <text x="634" y="106" font-family="'Segoe Print','Comic Sans MS','Kaiti SC',cursive" font-size="14" fill="#17324D">实体详情卡</text>
+  <g font-family="'Segoe Print','Comic Sans MS','Kaiti SC',cursive" font-size="11" fill="#4A5C6E">
+    <text x="634" y="130">名称 / 类型 / 实体 ID</text>
+    <text x="634" y="150">流派 / 发行年 / 登榜年</text>
+    <text x="634" y="170">连接数 · 关系类型构成</text>
+    <text x="634" y="196" fill="#E8734A">「在流派传播中查看」→ 跳转模块二</text>
+  </g>
+
+  <rect x="618" y="238" width="240" height="144" rx="10" fill="#FFFFFF" stroke="#17324D" stroke-width="2"/>
+  <text x="634" y="262" font-family="'Segoe Print','Comic Sans MS','Kaiti SC',cursive" font-size="14" fill="#17324D">共同署名合作者 Top12</text>
+  <g stroke="#2A9D8F" stroke-width="6" stroke-linecap="round">
+    <path d="M650 282 L820 282"/><path d="M650 300 L780 300"/><path d="M650 318 L780 318"/>
+    <path d="M650 336 L750 336"/><path d="M650 354 L745 354"/>
+  </g>
+  <g stroke="#E4EBF2" stroke-width="6" stroke-linecap="round">
+    <path d="M780 300 L830 300"/><path d="M745 354 L830 354"/>
+  </g>
+
+  <rect x="38" y="400" width="410" height="186" rx="10" fill="#FFFFFF" stroke="#17324D" stroke-width="2"/>
+  <text x="56" y="424" font-family="'Segoe Print','Comic Sans MS','Kaiti SC',cursive" font-size="14" fill="#17324D">作品累积轨迹（面积 + 散点）</text>
+  <path d="M60 550 Q120 540 170 520 Q230 490 280 460 Q340 420 420 400" fill="none" stroke="#2A9D8F" stroke-width="2.5"/>
+  <g fill="#E8734A">
+    <circle cx="120" cy="540" r="4"/><circle cx="190" cy="508" r="4"/><circle cx="260" cy="468" r="4"/>
+    <circle cx="330" cy="428" r="4"/><circle cx="400" cy="404" r="4"/>
+  </g>
+  <text x="56" y="572" font-family="'Segoe Print','Comic Sans MS','Kaiti SC',cursive" font-size="11" fill="#718396">点击年份 → 锁定全局时间窗</text>
+
+  <rect x="468" y="400" width="390" height="186" rx="10" fill="#FFFFFF" stroke="#17324D" stroke-width="2"/>
+  <text x="486" y="424" font-family="'Segoe Print','Comic Sans MS','Kaiti SC',cursive" font-size="14" fill="#17324D">可回溯上游影响路径表</text>
+  <g stroke="#E4EBF2" stroke-width="1">
+    <path d="M486 442 L840 442 M486 470 L840 470 M486 498 L840 498 M486 526 L840 526 M486 554 L840 554"/>
+  </g>
+  <g font-family="'Segoe Print','Comic Sans MS','Kaiti SC',cursive" font-size="11" fill="#4A5C6E">
+    <text x="490" y="460">链路（最多三跳）</text><text x="700" y="460">跳数 / 年份 / 日期完整</text>
+    <text x="490" y="488">作品 A → 作品 B</text><text x="700" y="488">1 / 2038 / 是</text>
+    <text x="490" y="516">… → 作品 C → 作品 D</text><text x="700" y="516">2 / — / 否</text>
+    <text x="490" y="544">原始边 ID 可回查 MC1_graph.json</text>
+  </g>
+
+  <rect x="38" y="600" width="820" height="0" fill="none"/>
+  <text x="640" y="596" font-family="'Segoe Print','Comic Sans MS','Kaiti SC',cursive" font-size="11" fill="#E8734A">× 力仿真 → √ 预计算坐标，筛选不跳变</text>
+</svg>

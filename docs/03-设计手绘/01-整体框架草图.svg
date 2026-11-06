@@ -1,0 +1,81 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 620" width="900" height="620">
+  <rect width="900" height="620" fill="#FBF8F0"/>
+  <text x="40" y="38" font-family="'Segoe Print','Comic Sans MS','Kaiti SC',cursive" font-size="20" fill="#17324D">第 1 轮 · 整体框架草图 / 2026-11-03</text>
+  <text x="40" y="60" font-family="'Segoe Print','Comic Sans MS','Kaiti SC',cursive" font-size="13" fill="#718396">想法：单页长滚动？→ 否决，证据会埋太深。改成三模块 Tab + 全局状态</text>
+
+  <rect x="38" y="82" width="820" height="88" rx="10" fill="#17324D" stroke="#17324D" stroke-width="2"/>
+  <rect x="42" y="86" width="812" height="80" rx="9" fill="none" stroke="#4A6D8C" stroke-width="1" opacity="0.8"/>
+  <text x="60" y="116" font-family="'Segoe Print','Comic Sans MS','Kaiti SC',cursive" font-size="18" fill="#FFFFFF">OceanusPulse · 潮音脉</text>
+  <text x="60" y="142" font-family="'Segoe Print','Comic Sans MS','Kaiti SC',cursive" font-size="12" fill="#A9C1D6">契约版本 / 观测截点 2040  ·  17,412 节点 · 37,857 边</text>
+  <rect x="470" y="100" width="360" height="28" rx="14" fill="#264A6B" stroke="#8FB0CC" stroke-width="1"/>
+  <text x="486" y="120" font-family="'Segoe Print','Comic Sans MS','Kaiti SC',cursive" font-size="12" fill="#FFFFFF">模块一 | 模块二 | 模块三  ← 三个 Tab</text>
+  <rect x="60" y="146" width="300" height="18" rx="9" fill="#31597A"/>
+  <text x="70" y="159" font-family="'Segoe Print','Comic Sans MS','Kaiti SC',cursive" font-size="10" fill="#DCE9F4">跨模块焦点条：选中实体 → 一键跳转流派</text>
+
+  <g stroke="#17324D" stroke-width="2" fill="#FFFFFF" opacity="0.97">
+    <rect x="38" y="196" width="255" height="230" rx="12"/>
+    <rect x="323" y="196" width="255" height="230" rx="12"/>
+    <rect x="608" y="196" width="250" height="230" rx="12"/>
+  </g>
+  <g stroke="#8FA6BA" stroke-width="1" fill="none" opacity="0.65">
+    <rect x="42" y="200" width="247" height="222" rx="11"/>
+    <rect x="327" y="200" width="247" height="222" rx="11"/>
+    <rect x="612" y="200" width="242" height="222" rx="11"/>
+  </g>
+  <g font-family="'Segoe Print','Comic Sans MS','Kaiti SC',cursive" fill="#17324D">
+    <text x="56" y="224" font-size="15">① 影响力溯源</text>
+    <text x="341" y="224" font-size="15">② 流派传播</text>
+    <text x="626" y="224" font-size="15">③ 新星预测</text>
+  </g>
+
+  <g stroke="#2A9D8F" stroke-width="1.6" fill="none">
+    <circle cx="120" cy="292" r="9"/><circle cx="170" cy="270" r="7"/><circle cx="205" cy="305" r="7"/>
+    <circle cx="140" cy="340" r="6"/><circle cx="228" cy="258" r="6"/>
+    <path d="M120 292 L170 270 M120 292 L205 305 M170 270 L228 258 M120 292 L140 340"/>
+  </g>
+  <g stroke="#E8734A" stroke-width="1.6" fill="none">
+    <path d="M205 305 L228 258" stroke-dasharray="4 3"/>
+  </g>
+  <text x="56" y="386" font-family="'Segoe Print','Comic Sans MS','Kaiti SC',cursive" font-size="12" fill="#718396">两跳关系图 + 详情卡 + 证据表</text>
+
+  <g stroke="#5B8FF9" stroke-width="1.8" fill="none">
+    <path d="M341 360 Q380 355 400 330 Q430 292 460 300 Q500 306 525 262 Q545 240 560 246"/>
+  </g>
+  <g stroke="#E8734A" stroke-width="1.2" fill="none">
+    <rect x="345" y="258" width="14" height="14"/><rect x="363" y="258" width="14" height="14"/>
+    <rect x="381" y="258" width="14" height="14" fill="#E8734A" opacity="0.5"/>
+    <rect x="363" y="276" width="14" height="14" fill="#E8734A" opacity="0.3"/>
+  </g>
+  <text x="341" y="386" font-family="'Segoe Print','Comic Sans MS','Kaiti SC',cursive" font-size="12" fill="#718396">年度曲线 + 流向矩阵 + 证据钻取</text>
+
+  <g stroke="#E8734A" stroke-width="1.8" fill="none">
+    <rect x="626" y="252" width="70" height="66" rx="5"/>
+    <rect x="704" y="252" width="70" height="66" rx="5"/>
+    <rect x="782" y="252" width="60" height="66" rx="5"/>
+  </g>
+  <g stroke="#7262FD" stroke-width="1.4" fill="none">
+    <path d="M700 348 L730 322 L760 348 L730 374 Z"/>
+  </g>
+  <text x="626" y="386" font-family="'Segoe Print','Comic Sans MS','Kaiti SC',cursive" font-size="12" fill="#718396">Top3 卡片 + 轨迹 + 雷达 + 验证</text>
+
+  <g stroke="#E8734A" stroke-width="2" fill="none">
+    <path d="M300 310 Q312 300 320 310"/>
+    <path d="M585 310 Q597 300 605 310"/>
+  </g>
+  <text x="268" y="296" font-family="'Segoe Print','Comic Sans MS','Kaiti SC',cursive" font-size="11" fill="#E8734A">联动</text>
+  <text x="552" y="296" font-family="'Segoe Print','Comic Sans MS','Kaiti SC',cursive" font-size="11" fill="#E8734A">联动</text>
+
+  <rect x="38" y="452" width="392" height="132" rx="8" fill="#FFF2C4" stroke="#D9B95C" stroke-width="1.5"/>
+  <text x="54" y="478" font-family="'Segoe Print','Comic Sans MS','Kaiti SC',cursive" font-size="14" fill="#7A5B12">便签 · 第 1 轮结论</text>
+  <text x="54" y="503" font-family="'Segoe Print','Comic Sans MS','Kaiti SC',cursive" font-size="12" fill="#6A5316">× 长滚动：三问差异大，钻取埋太深</text>
+  <text x="54" y="525" font-family="'Segoe Print','Comic Sans MS','Kaiti SC',cursive" font-size="12" fill="#6A5316">√ 三模块 Tab，共享焦点 / 时间窗 / 流派</text>
+  <text x="54" y="547" font-family="'Segoe Print','Comic Sans MS','Kaiti SC',cursive" font-size="12" fill="#6A5316">√ 每屏一个主图，证据放副图</text>
+  <text x="54" y="569" font-family="'Segoe Print','Comic Sans MS','Kaiti SC',cursive" font-size="12" fill="#6A5316">? 数据怎么给前端：待第 2 轮定</text>
+
+  <rect x="450" y="452" width="408" height="132" rx="8" fill="#EAF3F8" stroke="#7FA8C4" stroke-width="1.5"/>
+  <text x="466" y="478" font-family="'Segoe Print','Comic Sans MS','Kaiti SC',cursive" font-size="14" fill="#17324D">视觉规范（初稿）</text>
+  <text x="466" y="503" font-family="'Segoe Print','Comic Sans MS','Kaiti SC',cursive" font-size="12" fill="#2C435C">深蓝导航 / 白卡片 / 橙强调 / 青绿人物</text>
+  <text x="466" y="525" font-family="'Segoe Print','Comic Sans MS','Kaiti SC',cursive" font-size="12" fill="#2C435C">橙箭头 = 音乐影响（来源 → 受影响者）</text>
+  <text x="466" y="547" font-family="'Segoe Print','Comic Sans MS','Kaiti SC',cursive" font-size="12" fill="#2C435C">灰蓝线 = 署名 / 录制 / 成员</text>
+  <text x="466" y="569" font-family="'Segoe Print','Comic Sans MS','Kaiti SC',cursive" font-size="12" fill="#2C435C">不用柱图饼图当主视图！</text>
+</svg>

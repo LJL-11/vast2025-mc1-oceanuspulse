@@ -40,22 +40,48 @@ vast2025-mc1/
 └── report/                     # 结课提交物（PPT / 总结报告 / 个人总结）
 ```
 
-## 快速开始
+## 快速开始（clone 后必须先生成数据）
+
+`data/processed/` 的 84 份 JSON **不入库**，前端所有视图都依赖它；没生成数据页面会提示「数据未就绪」。
 
 ```bash
-# 数据工程
-python -m pip install -r pipeline/requirements.txt
-python -m pipeline.run
-python -m pipeline.validate
+# 1) Python 数据管线（仓库根目录，Windows；Linux/macOS 用 .venv/bin/python）
+python -m venv .venv
+.venv/Scripts/python -m pip install -r pipeline/requirements.txt
+.venv/Scripts/python -m pipeline.run          # 84 份 JSON，约 15.8 秒
+.venv/Scripts/python pipeline/features.py     # 模块三独立产物 rising_star.json
+.venv/Scripts/python -m unittest discover -s pipeline/tests -v   # 45 项
+node --test pipeline/tests/frontend.test.mjs                     # 8 项
 
-# 模块三独立分析（生成 rising_star.json）
-python pipeline/features.py
-
-# 前端（Node.js ≥ 18）
+# 2) 前端（Node.js ≥ 18）
 cd web && npm install && npm run dev
 ```
 
-数据工程交付与实际发现见 [交接说明](docs/05-数据工程交接.md)，前端字段和接入示例见 [数据契约](docs/06-前端数据契约.md)。v1.1 的影响证据、历年指标和规则敏感性见 [优化说明](docs/07-数据工程优化与稳健性.md)。完整运行会生成 `data/processed/` 的 84 份 JSON；生成物不入库。
+打开 <http://127.0.0.1:5173/>。`web/vite.config.js` 已接入官方 `pipelineDataPlugin` 与模块三独立数据插件：开发时从本地 `data/processed/` 提供 JSON，构建时把所需文件输出到 `dist/data/`；**前端从不直接读 6.5MB 原图**。
+
+URL 深链接：`?module=influence` / `?module=genre` / `?module=rising` 可直达指定模块，答辩演示直接给链接即可。
+
+## 已实现的系统（2026-11-06）
+
+| 模块 | 主要视图 | 交互 |
+|---|---|---|
+| 一 · 影响力溯源 | Sailor 两跳关系图、合作者排行、作品累积轨迹、上游影响路径表 | 类型/关系筛选、时间窗、缩放拖拽、悬停聚焦、点击详情、证据钻取 |
+| 二 · 流派传播 | 26 流派年度趋势、流向矩阵热力图、五类关系堆叠面积、证据钻取表 | 指标切换、流派/关系多选、时间窗、点格子回查原始边 ID |
+| 三 · 新星预测 | Top3 卡片、三人轨迹、能力雷达、综合分排行、统计检验面板 | 卡片证据链、图表联动 |
+
+共享状态（焦点实体 / 时间窗 / 关系类型 / 流派）由 Pinia 管理；任一模块选中实体后，可从顶部焦点条一键跳到模块二查看该实体流派的传播。
+
+## 交付物与文档
+
+- `report/项目总结报告.md` — 按官方三问逐条作答的答卷 + 6 条深度洞见
+- `report/答辩PPT大纲.md` — 12 页 / 15 分钟逐页大纲与讲稿主线
+- `report/个人总结模板.md` — 5 人各自填写的 5 页总结模板
+- `docs/03-设计手绘/` — 三轮手绘草图与视觉 / 交互规范
+- `docs/05`–`07` — 数据工程交接、前端数据契约、稳健性说明
+
+## 复现口径
+
+本机实测环境：Python 3.13 / NetworkX 3.5 / NumPy 2.2.4 / SciPy 1.15.2 / pandas 3.1.1 / scikit-learn 1.9.1。`requirements.txt` 未锁定 pandas、scikit-learn 的小版本，不同环境的回溯 AUC 会微幅漂移（本机 0.625，模块三初版报告 0.619）；答辩引用数字以 `data/processed/rising_star.json` 的 `validation.cross_validation.auc` 为准，并注明环境版本。
 
 ## 协作规范
 

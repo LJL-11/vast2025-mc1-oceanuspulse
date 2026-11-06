@@ -60,12 +60,13 @@ async function load() {
     const response = await fetch(props.dataUrl)
     if (!response.ok) throw new Error(`HTTP ${response.status}`)
     data.value = await response.json()
-    await nextTick()
-    renderCharts()
   } catch (err) {
     error.value = `无法读取 ${props.dataUrl}。请先在仓库根目录运行 python pipeline/features.py。`
   } finally {
     loading.value = false
+    // 图表容器位于 v-else 分支内：必须等 loading 结束、DOM 挂载后再初始化 ECharts。
+    await nextTick()
+    renderCharts()
   }
 }
 

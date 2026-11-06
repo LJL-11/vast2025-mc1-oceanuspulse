@@ -1,32 +1,104 @@
 <script setup>
-// OceanusPulse 根组件：三模块导航框架
-// 视图文件就位后把下面的占位块替换为 <RouterView> 或动态组件
+import { computed, nextTick, onMounted, ref, watch } from 'vue'
+import { useAppStore } from './stores/useAppStore'
+import { dataService } from './lib/dataService'
+import InfluenceTrace from './views/InfluenceTrace.vue'
+import GenreSpread from './views/GenreSpread.vue'
+import RisingStar from './views/RisingStar.vue'
+
+const store = useAppStore()
+const views = { influence: InfluenceTrace, genre: GenreSpread, rising: RisingStar }
+const currentView = computed(() => views[store.activeModule] || views.influence)
+
+const modules = [
+  { key: 'influence', label: '模块一 · 影响力溯源', hint: '谁造就了 Sailor Shift' },
+  { key: 'genre', label: '模块二 · 流派传播', hint: 'Oceanus Folk 如何走向世界' },
+  { key: 'rising', label: '模块三 · 新星预测', hint: '下一个爆红的是谁' },
+]
+
+const status = ref('loading')
+const contract = ref(null)
+
+onMounted(async () => {
+  const requested = new URLSearchParams(window.location.search).get('module')
+  if (requested && views[requested]) store.setModule(requested)
+  try {
+    const manifest = await dataService.manifest()
+    contract.value = manifest.meta
+    status.value = 'ok'
+  } catch {
+    status.value = 'missing'
+  }
+})
+
+watch(() => store.activeModule, async key => {
+  const url = new URL(window.location.href)
+  url.searchParams.set('module', key)
+  window.history.replaceState({}, '', url)
+  // KeepAlive 视图重新激活后 ECharts 需要重新读取容器尺寸。
+  await nextTick()
+  window.dispatchEvent(new Event('resize'))
+})
 </script>
 
 <template>
-  <div class="app-shell">
-    <header class="app-header">
-      <h1>OceanusPulse · 潮音脉</h1>
-      <p class="subtitle">VAST Challenge 2025 MC1 · 音乐知识图谱可视分析</p>
+  <div class="op-app">
+    <header class="op-header">
+      <div class="op-header-top">
+        <div class="op-brand">
+          <h1>OceanusPulse · 潮音脉</h1>
+          <p>IEEE VAST Challenge 2025 · MC1 音乐产业知识图谱可视分析系统</p>
+        </div>
+        <div class="op-header-meta">
+          <span class="op-meta-pill" :class="{ warn: status === 'missing' }">
+            <template v-if="status === 'ok'">
+              数据契约 v{{ contract.schema_version }} · 观测截点 {{ contract.cutoff_year }}
+            </template>
+            <template v-else-if="status === 'loading'">正在校验数据契约…</template>
+            <template v-else>数据管线未就绪 · 请运行 python -m pipeline.run</template>
+          </span>
+          <span>17,412 节点 · 37,857 关系 · 固定随机种子 42</span>
+        </div>
+      </div>
+
+      <div class="op-focus-bar">
+        <span>跨模块焦点</span>
+        <template v-if="store.focusNode">
+          <span class="op-focus-chip">
+            {{ store.focusNode.name }} · {{ store.focusNode.type }}
+            <button type="button" title="清除焦点" @click="store.clearFocus()">×</button>
+          </span>
+          <button
+            v-if="store.focusNode.genre"
+            type="button"
+            class="op-btn"
+            @click="store.focusGenre(store.focusNode.genre)"
+          >在流派传播中查看「{{ store.focusNode.genre }}」→</button>
+        </template>
+        <span v-else>点击任意节点或实体即可在模块间联动</span>
+      </div>
+
+      <nav class="op-tabs">
+        <button
+          v-for="item in modules"
+          :key="item.key"
+          type="button"
+          class="op-tab"
+          :class="{ active: store.activeModule === item.key }"
+          @click="store.setModule(item.key)"
+        >
+          {{ item.label }}<small>{{ item.hint }}</small>
+        </button>
+      </nav>
     </header>
-    <nav class="app-nav">
-      <span class="nav-item">模块一 · 影响力溯源</span>
-      <span class="nav-item">模块二 · 流派传播</span>
-      <span class="nav-item">模块三 · 新星预测</span>
-    </nav>
-    <main class="app-main">
-      <p class="placeholder">脚手架就绪。视图开发从 <code>src/views/</code> 开始，数据从 <code>data/processed/</code> 读取。</p>
+
+    <main class="op-main">
+      <KeepAlive><component :is="currentView" /></KeepAlive>
     </main>
+
+    <footer class="op-footer">
+      数据来源：IEEE VAST Challenge 2025 MC1 官方合成知识图谱；全部指标由 <code>pipeline/</code> 可复现生成（<code>python -m pipeline.run</code>、<code>python pipeline/features.py</code>）。
+      口径提示：<code>notable</code> 仅表示登过热榜，不代表冠军或销量；缺失的登榜年份保持未知，不补 0；影响力边已按「来源 → 受影响者」定向，与原始引用方向相反；官方说明称 18 个连通分量，本地重算为 16。
+    </footer>
   </div>
 </template>
-
-<style scoped>
-.app-shell { min-height: 100vh; display: flex; flex-direction: column; }
-.app-header { padding: 20px 32px 8px; }
-.app-header h1 { font-size: 22px; margin: 0; }
-.subtitle { color: #666; font-size: 13px; margin: 4px 0 0; }
-.app-nav { display: flex; gap: 24px; padding: 12px 32px; border-bottom: 1px solid #eee; }
-.nav-item { font-size: 14px; color: #333; cursor: default; }
-.app-main { flex: 1; padding: 32px; }
-.placeholder { color: #999; font-size: 14px; }
-</style>
