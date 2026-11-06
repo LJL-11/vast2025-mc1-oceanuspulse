@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Generate the 12-slide course defense deck for OceanusPulse.
+"""Generate the 13-slide course defense deck for OceanusPulse.
 
 复现方式（在仓库根目录）：
     python -m pip install python-pptx==1.0.2 pillow
@@ -31,6 +31,7 @@ RED = RGBColor(0xD9, 0x53, 0x4F)
 WHITE = RGBColor(0xFF, 0xFF, 0xFF)
 LINE = RGBColor(0xD6, 0xDC, 0xE5)
 FONT = 'Microsoft YaHei'
+TOTAL = 13
 
 prs = Presentation()
 prs.slide_width = Inches(13.333)
@@ -94,8 +95,9 @@ def header(slide, title, page, tag=''):
     rect(slide, 0.6, 7.02, 12.13, 0.012, LINE)
     text(slide, 0.6, 7.08, 8.0, 0.3,
          'OceanusPulse · 潮音脉  |  VAST 2025 MC1 课程项目答辩', size=11, color=GREY)
-    text(slide, 10.6, 7.08, 2.13, 0.3, f'{page:02d} / 12', size=11, color=GREY,
-         align=PP_ALIGN.RIGHT)
+    # 页码按实际已创建的幻灯片数自动计算，插入新页时无需逐页改数字。
+    text(slide, 10.6, 7.08, 2.13, 0.3, f'{len(prs.slides):02d} / {TOTAL}',
+         size=11, color=GREY, align=PP_ALIGN.RIGHT)
 
 
 def banner(slide, label, sentence, y=1.02):
@@ -186,8 +188,8 @@ conclusion(s, '口径纪律：任何「逐年影响力增长」的图，都必�
 
 # P4 system
 s = prs.slides.add_slide(BLANK)
-header(s, '系统总览：三模块对应三问', 4, '03 · System')
-banner(s, '架构', 'Vite + Vue 3 + Pinia + ECharts 5 + D3；前端只读 84 份契约 JSON，不加载 6.5MB 原图。')
+header(s, '系统总览：00 全景入口 + 三模块对应三问', 4, '03 · System')
+banner(s, '架构', 'Vue 3 + Pinia + ECharts 5 + D3 + Three.js；前端只读 84 份契约 JSON，不加载 6.5MB 原图')
 bullet_block(s, 0.6, 1.95, 3.85, 3.9, '模块一 · 影响力溯源', [
     '两跳网络：269 节点 / 546 边',
     '预计算布局，浏览器不做力仿真',
@@ -206,9 +208,25 @@ bullet_block(s, 8.88, 1.95, 3.85, 3.9, '模块三 · 新星预测', [
     '交叉验证与 FDR 检验面板',
     '全部数字来自可复现脚本',
 ], tone=MID)
-conclusion(s, '跨模块联动：选中实体 → 全局焦点条 → 一键跳转该流派的传播视图；?module= 可直达指定模块。')
+conclusion(s, '00 是全貌入口，01–03 负责证据、趋势与验证；?module= 可直达任意模块，选中实体跨模块联动。')
 
-# P5 design process
+# P5 module 0 · 全景图谱（新增）
+s = prs.slides.add_slide(BLANK)
+header(s, '模块零 · 全景图谱', 5, '00 · Overview')
+banner(s, '系统入口', '26 个流派的球形三维网络 + 音乐主题图标 + 方向流光；页面仍是白底学术蓝与流光表头。')
+image(s, os.path.join(SHOTS, '00-module0-overview.png'), 0.6, 1.92, 6.5, 4.4)
+rect(s, 0.6, 1.92, 6.5, 4.4, None, LINE)
+text(s, 7.35, 2.0, 5.38, 0.4, '视图与口径', size=22, color=BLUE, bold=True)
+text(s, 7.35, 2.55, 5.38, 3.6, [
+    '• 26 个流派、342 条跨流派有向关系',
+    '• 600 个有界实体概览，明确声明非抽样',
+    '• WebGL 旋转 / 拖拽 / 缩放，另有二维后备',
+    '• 金色为流入、冰蓝为流出，可切换方向',
+    '• 数据仍走 dataService 契约，口径一致',
+], size=16, color=INK, spacing=1.3, after=9)
+conclusion(s, '00 负责「先看全貌」，01–03 负责证据、趋势与验证；三维坐标只是导航，不代表相似度。')
+
+# P6 design process
 s = prs.slides.add_slide(BLANK)
 header(s, '设计过程（课程硬性要求）', 5, '04 · Design')
 banner(s, '三轮迭代', '从手绘草图到组件化前端，每轮都记录被否决的方案与理由。')
@@ -339,7 +357,7 @@ bullet_block(s, 0.6, 1.95, 5.95, 3.9, '三问的答案', [
     '交付：可交互系统 + 84 份数据 + 逐题答卷',
 ])
 bullet_block(s, 6.78, 1.95, 5.95, 3.9, '分工与待办', [
-    '付嘉一：前端架构、模块一、整合与部署',
+    '付嘉一：前端架构、00 接入、模块一与整合',
     '邬昊文：数据工程管线与 84 份数据契约',
     '资丰瑞：模块二传播分析；周涛：模块三预测',
     '隋咏轩：手绘设计、答辩 PPT 与文档',

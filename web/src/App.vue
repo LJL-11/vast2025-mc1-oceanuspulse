@@ -5,12 +5,23 @@ import { dataService } from './lib/dataService'
 import InfluenceTrace from './views/InfluenceTrace.vue'
 import GenreSpread from './views/GenreSpread.vue'
 import RisingStar from './views/RisingStar.vue'
+import NetworkOverview from './views/NetworkOverview.vue'
+// 00 专属样式：先载入图谱基础样式，再用白底学术蓝适配层覆盖。
+// 两个文件都只作用于 .op-overview，不影响其余模块。
+import './styles/network.css'
+import './styles/overview-scope.css'
 
 const store = useAppStore()
-const views = { influence: InfluenceTrace, genre: GenreSpread, rising: RisingStar }
+const views = {
+  overview: NetworkOverview,
+  influence: InfluenceTrace,
+  genre: GenreSpread,
+  rising: RisingStar,
+}
 const currentView = computed(() => views[store.activeModule] || views.influence)
 
 const modules = [
+  { key: 'overview', label: '全景图谱 · 00', hint: '26 流派与音乐生态网络' },
   { key: 'influence', label: '模块一 · 影响力溯源', hint: '谁造就了 Sailor Shift' },
   { key: 'genre', label: '模块二 · 流派传播', hint: 'Oceanus Folk 如何走向世界' },
   { key: 'rising', label: '模块三 · 新星预测', hint: '下一个爆红的是谁' },
@@ -122,7 +133,7 @@ onBeforeUnmount(() => { if (glowFrame) cancelAnimationFrame(glowFrame) })
       </nav>
     </header>
 
-    <main class="op-main">
+    <main class="op-main" :class="{ 'op-overview': store.activeModule === 'overview' }">
       <KeepAlive><component :is="currentView" /></KeepAlive>
     </main>
 

@@ -12,6 +12,8 @@ export const useAppStore = defineStore('app', {
     ],
     focusGenres: ['Oceanus Folk'],
     trendMetric: 'outbound_events',
+    // 00 全景图谱的动效开关；尊重系统「减少动态效果」时应设为 false。
+    motionEnabled: true,
   }),
   actions: {
     setModule(key) {
