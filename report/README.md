@@ -6,7 +6,7 @@
 
 | # | 材料 | 要求 | 状态 |
 |---|---|---|---|
-| 1 | `项目汇报.ppt` | 全组共一份，现场汇报 10–15 分钟 | **大纲已完成**（`答辩PPT大纲.md`，12 页 / 15 分钟），待据此生成 .ppt 并贴系统截图 |
+| 1 | `项目汇报.pptx` | 全组共一份，现场汇报 10–15 分钟 | **已完成**：12 页 / 16:9，含三模块最终版截图与设计草图，可用 PowerPoint / WPS 直接打开 |
 | 2 | `每人5页的总结报告.doc` | 每人单独一份：学号、班级、姓名 + 个人工作总结、收获、感悟 | **模板已给**（`个人总结模板.md`），待 5 人各自填写；感悟必须本人写 |
 | 3 | `项目资料.rar` | 参考 ChinaVis/VAST Data Challenge 提交要求：项目总结报告/答卷 | **已完成**（`项目总结报告.md`：官方三问逐条作答 + 6 条深度洞见 + 复现与局限） |
 
@@ -18,16 +18,28 @@
 
 ## 目录
 
-- `项目总结报告.md` — 项目资料 / 答卷（已定稿，可直接放进 rar）
+- `项目汇报.pptx` — **正式答辩文件**（12 页；P5 设计草图，P6/P8/P10 三模块整页截图）
 - `答辩PPT大纲.md` — 逐页大纲、讲稿主线、现场演示检查清单
+- `PPT设计说明.md` — 视觉规范、逐页规划、配图来源（设计过程留档）
+- `generate_ppt.py` — PPT 的可复现生成脚本（python-pptx），改文案后重跑即可
+- `项目总结报告.md` — 项目资料 / 答卷（已定稿，可直接放进 rar）
 - `个人总结模板.md` — 5 人各自填写的 5 页结构（含各角色填写提示）
-- `screenshots/` — 三模块最终版页面截图（`01-module1-influence.png` / `02-module2-genre.png` / `03-module3-rising.png`），直接用于 PPT
+- `screenshots/` — `01-module1-influence.png` / `02-module2-genre.png` / `03-module3-rising.png` / `04-design-sketch-overview.png`
 - `个人总结/` — 放 5 位成员写好的 `个人总结-姓名.doc`
-- `项目汇报.ppt` — 由设计·文档成员据大纲生成后放本目录
+
+## 重新生成 PPT
+
+```powershell
+python -m pip install python-pptx==1.0.2 pillow
+python report/generate_ppt.py     # 输出 report/项目汇报.pptx
+```
+
+脚本只用 `report/screenshots/` 里的图片，不依赖临时目录；数字全部出自 `report/项目总结报告.md` 与 `data/processed/` 的实测产物，不手写编造。
 
 ## 提交前检查
 
+- [x] PPT 里的系统截图是最终版本（三个模块各一张 + 设计草图一张）
+- [x] 答卷中的数字与 `data/processed/rising_star.json` 一致，并注明复现环境
 - [ ] 压缩包命名 `可视化课程项目-付嘉一-邬昊文-资丰瑞-周涛-隋咏轩.rar`，邮件标题同名
-- [ ] PPT 里的系统截图是最终版本（三个模块各至少一张）
-- [ ] 答卷中的数字与 `data/processed/rising_star.json` 一致，并注明复现环境
 - [ ] 5 份个人总结都写了学号、班级、姓名，且内容不雷同
+- [ ] 手绘草图打印后补手写批注照片（课程要求「手绘设计过程」，SVG 为电子化底稿）

@@ -20,3 +20,6 @@ desktop.ini
 # 编辑器
 .vscode/
 .idea/
+
+# PPT 生成过程的本地中间产物（正式交付为 report/项目汇报.pptx）
+report/ppt_build/
