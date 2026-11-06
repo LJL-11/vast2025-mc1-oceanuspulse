@@ -1,0 +1,66 @@
+/* User-driven navigation only: no scroll reveals or delayed content. */
+.down-arrow {
+  transform: rotate(90deg);
+}
+.studio-nav {
+  view-transition-name: studio-navigation;
+}
+::view-transition {
+  pointer-events: none;
+}
+::view-transition-group(root) {
+  animation: none;
+}
+::view-transition-old(root) {
+  animation: analysis-leave 150ms ease-out both;
+  mix-blend-mode: normal;
+}
+::view-transition-new(root) {
+  animation: analysis-enter 260ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  mix-blend-mode: normal;
+}
+::view-transition-group(studio-navigation),
+::view-transition-new(studio-navigation) {
+  animation: none;
+}
+::view-transition-old(studio-navigation) {
+  display: none;
+}
+@keyframes analysis-leave {
+  to {
+    opacity: 0;
+    transform: translateY(-5px);
+    filter: blur(1px);
+  }
+}
+@keyframes analysis-enter {
+  from {
+    opacity: 0;
+    transform: translateY(9px);
+    filter: blur(2px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+    filter: blur(0);
+  }
+}
+.module-link.is-pending {
+  color: var(--op-accent);
+}
+.route-error {
+  padding: 88px var(--gut) 16px;
+  background: #3c2624;
+  color: #f0c7b4;
+  font-size: 14px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .studio-nav {
+    view-transition-name: none;
+  }
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none !important;
+  }
+}

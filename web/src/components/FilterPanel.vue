@@ -1,23 +1,32 @@
 <script setup>
 const props = defineProps({
-  label: { type: String, default: '筛选' },
+  label: { type: String, default: "筛选" },
   options: { type: Array, required: true },
   modelValue: { type: Array, required: true },
   allowEmpty: { type: Boolean, default: false },
-})
-const emit = defineEmits(['update:modelValue'])
+});
+const emit = defineEmits(["update:modelValue"]);
 
 function toggle(value) {
-  const has = props.modelValue.includes(value)
-  if (!has) return emit('update:modelValue', [...props.modelValue, value])
-  if (!props.allowEmpty && props.modelValue.length === 1) return
-  emit('update:modelValue', props.modelValue.filter(item => item !== value))
+  const has = props.modelValue.includes(value);
+  if (!has) return emit("update:modelValue", [...props.modelValue, value]);
+  if (!props.allowEmpty && props.modelValue.length === 1) return;
+  emit(
+    "update:modelValue",
+    props.modelValue.filter((item) => item !== value),
+  );
 }
 function selectAll() {
-  emit('update:modelValue', props.options.map(item => item.value))
+  emit(
+    "update:modelValue",
+    props.options.map((item) => item.value),
+  );
 }
 function clear() {
-  emit('update:modelValue', props.allowEmpty ? [] : [props.options[0]?.value].filter(Boolean))
+  emit(
+    "update:modelValue",
+    props.allowEmpty ? [] : [props.options[0]?.value].filter(Boolean),
+  );
 }
 </script>
 
@@ -31,10 +40,15 @@ function clear() {
         type="button"
         class="op-chip"
         :class="{ on: modelValue.includes(item.value) }"
+        :aria-pressed="modelValue.includes(item.value)"
         :title="item.hint || item.label"
         @click="toggle(item.value)"
       >
-        <span v-if="item.color" class="dot" :style="{ background: item.color }" />
+        <span
+          v-if="item.color"
+          class="dot"
+          :style="{ background: item.color }"
+        />
         {{ item.label }}
       </button>
     </div>
@@ -43,5 +57,10 @@ function clear() {
 </template>
 
 <style scoped>
-.op-filter { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 10px; }
+.op-filter {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 10px;
+}
 </style>

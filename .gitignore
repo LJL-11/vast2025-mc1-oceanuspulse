@@ -21,5 +21,9 @@ desktop.ini
 .vscode/
 .idea/
 
+# Local design tooling, browser profiles and visual QA
+.taste-skill/
+shots/
+
 # PPT 生成过程的本地中间产物（正式交付为 report/项目汇报.pptx）
 report/ppt_build/

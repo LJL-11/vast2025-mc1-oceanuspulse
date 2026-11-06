@@ -1,58 +1,101 @@
 <script setup>
-import { computed } from 'vue'
-import { NODE_COLORS, NODE_LABELS, EDGE_LABELS, formatCount } from '../lib/palette'
-
+import { computed } from "vue";
+import {
+  NODE_COLORS,
+  NODE_LABELS,
+  EDGE_LABELS,
+  formatCount,
+} from "../lib/palette";
+import AppIcon from "./AppIcon.vue";
 const props = defineProps({
   node: { type: Object, default: null },
   degree: { type: Number, default: 0 },
   linkTypes: { type: Array, default: () => [] },
-})
-const emit = defineEmits(['close', 'jump'])
-
-const color = computed(() => NODE_COLORS[props.node?.type] || '#718396')
-const rows = computed(() => {
-  if (!props.node) return []
-  return [
-    ['实体 ID', props.node.id],
-    ['类型', NODE_LABELS[props.node.type] || props.node.type],
-    ['流派', props.node.genre || '—'],
-    ['发行 / 写作年份', props.node.release_year ?? '—'],
-    ['已知登榜年份', props.node.chart_year ?? '未知（不补 0）'],
-    ['登过热榜', props.node.notable == null ? '—' : (props.node.notable ? '是' : '否')],
-    ['图中连接数', formatCount(props.degree)],
-  ]
-})
+});
+const emit = defineEmits(["close", "jump"]);
+const color = computed(() => NODE_COLORS[props.node?.type] || "#95a4b9");
+const initials = computed(() =>
+  (props.node?.name || "")
+    .split(" ")
+    .slice(0, 2)
+    .map((x) => x[0])
+    .join(""),
+);
 </script>
-
 <template>
-  <article class="op-card op-detail">
+  <aside class="entity-dossier" aria-label="当前实体档案" aria-live="polite">
+    <div class="dossier-heading">
+      <span class="field-label">实体档案</span
+      ><button
+        v-if="node"
+        class="btn btn--secondary icon-button"
+        aria-label="清除当前焦点"
+        @click="emit('close')"
+      >
+        <AppIcon name="close" :size="15" />
+      </button>
+    </div>
     <template v-if="node">
-      <div class="op-detail-head">
-        <h3 :style="{ color }">{{ node.name }}</h3>
-        <button type="button" class="op-btn" @click="emit('close')">清除</button>
+      <div class="entity-avatar" :style="{ '--entity-color': color }">
+        {{ initials }}
       </div>
-      <p class="op-note">点击其他节点可切换焦点；焦点会同步到顶部跨模块状态条。</p>
-      <dl class="op-detail-grid">
-        <template v-for="[key, value] in rows" :key="key">
-          <dt>{{ key }}</dt><dd>{{ value }}</dd>
-        </template>
+      <span class="entity-kind"
+        ><i :style="{ background: color }" />{{
+          NODE_LABELS[node.type] || node.type
+        }}</span
+      >
+      <h2 class="entity-name">{{ node.name }}</h2>
+      <div class="dossier-stats">
+        <div>
+          <strong>{{ formatCount(degree) }}</strong
+          ><span>图中连接</span>
+        </div>
+        <div>
+          <strong>{{ node.release_year ?? "—" }}</strong
+          ><span>发行年份</span>
+        </div>
+      </div>
+      <dl class="entity-facts">
+        <div>
+          <dt>实体编号</dt>
+          <dd>#{{ node.id }}</dd>
+        </div>
+        <div>
+          <dt>所属流派</dt>
+          <dd>{{ node.genre || "未标注" }}</dd>
+        </div>
+        <div>
+          <dt>登榜年份</dt>
+          <dd>{{ node.chart_year ?? "未知" }}</dd>
+        </div>
       </dl>
-      <div v-if="linkTypes.length" class="op-pill-list">
-        <span v-for="item in linkTypes" :key="item.type" class="op-pill">
-          {{ EDGE_LABELS[item.type] || item.type }} × {{ item.count }}
-        </span>
+      <div class="relation-breakdown">
+        <span class="field-label">关系构成</span>
+        <div v-for="item in linkTypes.slice(0, 4)" :key="item.type">
+          <span>{{ EDGE_LABELS[item.type] || item.type }}</span
+          ><i
+            ><b
+              :style="{
+                width: `${Math.max(5, (item.count / Math.max(1, degree)) * 100)}%`,
+              }" /></i
+          ><strong>{{ item.count }}</strong>
+        </div>
       </div>
       <button
         v-if="node.genre"
-        type="button"
-        class="op-btn primary"
-        style="margin-top: 12px"
+        class="btn btn--secondary dossier-action"
         @click="emit('jump', node.genre)"
-      >在流派传播中查看「{{ node.genre }}」→</button>
+      >
+        查看流派传播<AppIcon name="arrow" :size="16" />
+      </button>
+      <span class="dossier-boundary"
+        >连接表示图谱关系，不代表私人关系或因果影响。</span
+      >
     </template>
-    <template v-else>
-      <h3>实体详情</h3>
-      <p class="op-note">在左侧关系图中点击任意节点，这里会显示它的类型、流派、年份、关系构成和可回溯的边 ID。再次点击空白处或按「清除」取消选择。</p>
-    </template>
-  </article>
+    <template v-else
+      ><div class="entity-avatar"><AppIcon name="graph" :size="32" /></div>
+      <h2 class="entity-name">选择一个实体</h2>
+      <p>点击图谱节点或搜索名称，查看关系与证据。</p></template
+    >
+  </aside>
 </template>
