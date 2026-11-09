@@ -12,6 +12,7 @@ import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import { useAppStore } from "../stores/useAppStore";
+import { useReadingPause } from "../lib/ambientMotion";
 import { NODE_COLORS, NODE_LABELS, INFLUENCE_EDGE_TYPES } from "../lib/palette";
 import AppIcon from "./AppIcon.vue";
 import { genreIcons } from "../lib/genre-icons";
@@ -42,6 +43,8 @@ const tooltipStyle = computed(() => ({
   left: `${tooltipPosition.value.x}px`,
   top: `${tooltipPosition.value.y}px`,
 }));
+const reading = useReadingPause();
+const idleMotion = computed(() => store.motionEnabled && !reading.paused.value);
 const labelElements = new Map(),
   nodesById = new Map(),
   instanceMeshes = new Map(),
@@ -616,7 +619,7 @@ function ring(object, node, time) {
   object.quaternion.copy(camera.quaternion);
   const radius =
     node.radius * (node.genre ? 1.3 : 1.2) +
-    (store.motionEnabled ? Math.sin(time * 1.4) * 1 : 0);
+    (idleMotion.value ? Math.sin(time * 1.4) : 0);
   object.scale.setScalar(radius);
   object.material.color.set(node.color);
 }
@@ -685,17 +688,17 @@ function animate(now) {
   frame = requestAnimationFrame(animate);
   if (!active || !visible || document.hidden || now - lastFrame < 40) return;
   lastFrame = now;
-  controls?.update();
   if (!renderer || !scene) return;
-  if (!store.motionEnabled && !dirty) return;
+  const idle = idleMotion.value;
+  controls.autoRotate = idle && !interacted && props.nodes[0]?.type === "Genre";
+  controls.update();
+  if (!idle && !dirty) return;
   const time = now / 1000,
     focus = hoverId ?? props.focusId,
     selected = nodesById.get(props.focusId);
-  controls.autoRotate =
-    store.motionEnabled && !interacted && props.nodes[0]?.type === "Genre";
-  if (starDust && store.motionEnabled) starDust.rotation.y = time * 0.006;
-  if (particleMesh) {
-    particleMesh.visible = store.motionEnabled;
+  if (starDust && idle) starDust.rotation.y = time * 0.006;
+  if (particleMesh) particleMesh.visible = idle;
+  if (particleMesh && idle) {
     const p = particleMesh.geometry.attributes.position.array,
       c = particleMesh.geometry.attributes.color.array;
     let count = 0;
@@ -982,7 +985,7 @@ watch(
   { deep: true },
 );
 watch(
-  () => store.motionEnabled,
+  idleMotion,
   () => {
     dirty = true;
   },
@@ -1011,7 +1014,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div ref="root" class="network-canvas-root spatial-network">
+  <div ref="root" class="network-canvas-root spatial-network" v-on="reading.events">
     <canvas
       ref="canvas"
       class="network-canvas"

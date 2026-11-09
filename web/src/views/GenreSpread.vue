@@ -1,10 +1,15 @@
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { dataService, friendlyDataError } from '../lib/dataService'
 import { useAppStore } from '../stores/useAppStore'
 import ChartPanel from '../components/ChartPanel.vue'
+import GenreCarta from '../components/GenreCarta.vue'
+import GenreChronicle from '../components/GenreChronicle.vue'
+import JournalPager from '../components/JournalPager.vue'
 import TimeScrubber from '../components/TimeScrubber.vue'
 import FilterPanel from '../components/FilterPanel.vue'
+import AppIcon from '../components/AppIcon.vue'
+import { FLOW_TONES } from '../lib/atlas'
 import {
   FLOW_TYPES, FLOW_COLORS, EDGE_LABELS, genreColor,
   CHART_MUTED, CHART_GRID, formatCount,
@@ -15,20 +20,22 @@ const loading = ref(true)
 const error = ref('')
 const trends = ref(null)
 const flows = ref(null)
-const events = ref(null)
 const overview = ref(null)
 const selectedCell = ref(null)
 const selectedYear = ref(null)
+const selectedGenre = ref('')
+const trendMode = ref('spread')
+const showAllLanes = ref(store.focusGenres.length < 2)
+const evidencePanel = ref(null)
 
 onMounted(async () => {
   try {
-    const [t, f, e, o] = await Promise.all([
+    const [t, f, o] = await Promise.all([
       dataService.genreTrends(), dataService.genreFlows(),
-      dataService.influenceEvents(), dataService.overview(),
+      dataService.overview(),
     ])
     trends.value = t
     flows.value = f
-    events.value = e
     overview.value = o
   } catch (cause) {
     error.value = friendlyDataError(cause)
@@ -97,12 +104,12 @@ const trendOption = computed(() => ({
     },
     splitLine: { lineStyle: { color: CHART_GRID } },
   },
-  series: focusGenres.value.map((genre, index) => ({
-    name: genre, type: 'line', smooth: true, showSymbol: false,
+  series: (focusGenres.value.length ? focusGenres.value : [featuredGenre.value]).map((genre, index) => ({
+    name: genre, type: 'line', showSymbol: chartYears.value.length < 5, symbolSize: 6,
     lineStyle: { width: index === 0 ? 2.8 : 1.7, color: genreColor(index) },
     itemStyle: { color: genreColor(index) },
     areaStyle: index === 0 ? { color: 'rgba(232,115,74,0.10)' } : undefined,
-    data: chartYears.value.map(year => rowLookup.value.get(`${genre}|${year}`)?.[metric.value] ?? 0),
+    data: chartYears.value.map(year => rowLookup.value.get(`${genre}|${year}`)?.[metric.value] ?? null),
   })),
 }))
 
@@ -120,7 +127,7 @@ const matrixGenres = computed(() => {
     totals.set(flow.target, (totals.get(flow.target) || 0) + flow.value)
   }
   const ranked = [...totals.entries()].sort((a, b) => b[1] - a[1]).map(entry => entry[0])
-  return ['Oceanus Folk', ...ranked.filter(name => name !== 'Oceanus Folk')].slice(0, 12)
+  return [...new Set([...focusGenres.value, 'Oceanus Folk', ...ranked])].slice(0, 12)
 })
 const matrixCells = computed(() => {
   const aggregate = new Map()
@@ -140,11 +147,11 @@ const matrixMax = computed(() => {
 })
 const matrixOption = computed(() => ({
   tooltip: {
-    position: 'top',
+    position: 'top', renderMode: 'richText',
     formatter: params => {
       const source = matrixGenres.value[params.data[1]]
       const target = matrixGenres.value[params.data[0]]
-      return `${source} <b>→</b> ${target}<br>影响事件 ${params.data[2]} 条 · 点击查看证据`
+      return `${source} → ${target}\n${params.data[2]} 条引用 · 点击查看证据`
     },
   },
   grid: { left: 112, right: 16, top: 14, bottom: 76 },
@@ -162,7 +169,7 @@ const matrixOption = computed(() => ({
     min: 0, max: matrixMax.value, calculable: false,
     orient: 'horizontal', left: 'center', bottom: 0, itemWidth: 12, itemHeight: 90,
     textStyle: { fontSize: 10, color: CHART_MUTED },
-    inRange: { color: ['#F4F7FA', '#D6EAE5', '#79BFB0', '#E8734A'] },
+    inRange: { color: ['#eff5f8', '#c2dbe9', '#6ca9c2', '#21577d'] },
   },
   series: [{
     type: 'heatmap', data: matrixCells.value,
@@ -185,7 +192,7 @@ const flowTypeOption = computed(() => ({
     axisLabel: { fontSize: 10, color: CHART_MUTED }, splitLine: { lineStyle: { color: CHART_GRID } },
   },
   series: FLOW_TYPES.filter(type => visibleFlowTypes.value.includes(type)).map(type => ({
-    name: EDGE_LABELS[type], type: 'line', stack: 'flow', smooth: true, showSymbol: false,
+    name: EDGE_LABELS[type], type: 'line', stack: 'flow', showSymbol: false,
     lineStyle: { width: 0 }, areaStyle: { color: FLOW_COLORS[type], opacity: 0.78 },
     itemStyle: { color: FLOW_COLORS[type] },
     data: chartYears.value.map(year => filteredFlows.value
@@ -196,32 +203,43 @@ const flowTypeOption = computed(() => ({
 
 function onMatrixClick(params) {
   if (!params.data) return
-  selectedCell.value = {
-    source: matrixGenres.value[params.data[1]],
-    target: matrixGenres.value[params.data[0]],
-  }
+  choosePair(matrixGenres.value[params.data[1]], matrixGenres.value[params.data[0]])
 }
 function onTrendClick(params) {
+  selectedCell.value = null
   selectedYear.value = chartYears.value[params.dataIndex] ?? null
+  selectedGenre.value = params.seriesName
 }
+function chooseMapYear({ year, genre }) {
+  selectedCell.value = null
+  selectedYear.value = year
+  selectedGenre.value = genre
+}
+function choosePair(source, target, year = null) {
+  if (year == null || year !== selectedYear.value) selectedGenre.value = ''
+  selectedYear.value = year
+  selectedCell.value = { source, target }
+}
+function clearEvidence() {
+  selectedCell.value = null
+  selectedYear.value = null
+  selectedGenre.value = ''
+}
+watch([yearRange, focusGenres, visibleFlowTypes, metric], clearEvidence)
+watch(focusGenres, genres => { if (genres.length > 1) showAllLanes.value = false })
 const drillRows = computed(() => {
   if (selectedCell.value) {
     return filteredFlows.value.filter(flow =>
-      flow.source === selectedCell.value.source && flow.target === selectedCell.value.target,
+      flow.source === selectedCell.value.source && flow.target === selectedCell.value.target
+      && (selectedYear.value == null || flow.year === selectedYear.value),
     )
   }
   if (selectedYear.value != null) {
-    return filteredFlows.value.filter(flow => flow.year === selectedYear.value)
+    return filteredFlows.value.filter(flow => flow.year === selectedYear.value &&
+      (!selectedGenre.value || (metric.value === 'inbound_events' ? flow.target : flow.source) === selectedGenre.value))
   }
   return filteredFlows.value.slice(0, 12)
 })
-const eventById = computed(() => new Map((events.value?.events || []).map(event => [event.id, event])))
-function evidenceFor(flow) {
-  return (flow.event_ids || []).slice(0, 3).map(id => {
-    const event = eventById.value.get(id)
-    return event ? `${id} · ${event.type} · ${event.year ?? '无日期'}` : id
-  })
-}
 
 const folkRows = computed(() => (trends.value?.rows || []).filter(row => row.genre === 'Oceanus Folk'))
 const peakRow = computed(() => folkRows.value.reduce(
@@ -243,100 +261,184 @@ const trailingPeak = computed(() => folkRows.value.reduce(
 const spreadLabel = computed(() => concentration.value < 0.2 && folkActiveYears.value >= 10
   ? '多波次扩散'
   : concentration.value < 0.4 ? '脉冲式扩散' : '单年爆发')
-function topFlow(side, fixed) {
+function topFlow(side, fixed, year = null) {
   const totals = new Map()
   for (const flow of filteredFlows.value) {
+    if (year != null && flow.year !== year) continue
     if (side === 'out' && flow.source !== fixed) continue
     if (side === 'in' && flow.target !== fixed) continue
     const key = side === 'out' ? flow.target : flow.source
-    if (key === 'Oceanus Folk') continue
+    if (key === fixed) continue
     totals.set(key, (totals.get(key) || 0) + flow.value)
   }
   return [...totals.entries()].sort((a, b) => b[1] - a[1]).slice(0, 3)
 }
 const topOut = computed(() => topFlow('out', 'Oceanus Folk'))
 const topIn = computed(() => topFlow('in', 'Oceanus Folk'))
+const featuredGenre = computed(() => focusGenres.value[0] || 'Oceanus Folk')
+const featuredOut = computed(() => topFlow('out', featuredGenre.value))
+const featuredIn = computed(() => topFlow('in', featuredGenre.value))
+const lensGenre = computed(() => selectedGenre.value || selectedCell.value?.source || featuredGenre.value)
+const lensOut = computed(() => topFlow('out', lensGenre.value, selectedYear.value))
+const lensIn = computed(() => topFlow('in', lensGenre.value, selectedYear.value))
+const allLaneNames = computed(() => {
+  const focus = featuredGenre.value
+  const affinity = new Map()
+  for (const flow of flows.value?.flows ?? []) {
+    if (flow.source === flow.target || (flow.source !== focus && flow.target !== focus)) continue
+    const peer = flow.source === focus ? flow.target : flow.source
+    affinity.set(peer, (affinity.get(peer) ?? 0) + flow.value)
+  }
+  const ranked = allGenres.value.filter(name => name !== focus)
+    .sort((a, b) => (affinity.get(b) ?? 0) - (affinity.get(a) ?? 0) || a.localeCompare(b))
+  const left = ranked.filter((_, index) => index % 2 === 0).reverse()
+  const right = ranked.filter((_, index) => index % 2 === 1)
+  return [...left, focus, ...right]
+})
+const focusedLanes = computed(() => {
+  if (focusGenres.value.length > 1) return focusGenres.value
+  return [...new Set([featuredGenre.value, ...featuredOut.value.map(row => row[0]), ...featuredIn.value.map(row => row[0])])].slice(0, 6)
+})
+const laneGenres = computed(() => showAllLanes.value ? allLaneNames.value : focusedLanes.value)
+const makeTrack = genre => ({
+  name: genre,
+  colorIndex: Math.max(0, allGenres.value.indexOf(genre)),
+  rows: chartYears.value.map(year => ({
+    year, value: rowLookup.value.get(genre + '|' + year)?.[metric.value] ?? null,
+  })),
+})
+const scoreTracks = computed(() => laneGenres.value.map(makeTrack))
+const spreadTracks = computed(() => focusedLanes.value.map(makeTrack))
 const issues = computed(() => overview.value?.issue_counts || {})
 const folkWorks = computed(() => overview.value?.genre_work_counts?.['Oceanus Folk'] ?? 0)
 </script>
 
 <template>
-  <div>
+  <div class="atlas-analysis atlas-genre">
     <div v-if="loading" class="op-state">正在加载流派年度趋势与影响流向…</div>
     <div v-else-if="error" class="op-state error">
       {{ error }}<br><code>python -m pipeline.run</code>
     </div>
 
     <template v-else>
-      <div class="op-page-head">
-        <div>
-          <h2>模块二 · 流派传播</h2>
-          <p>Oceanus Folk 的年度影响轨迹与跨流派流向 · 对应赛题任务 2.1 / 2.2 / 2.3</p>
+      <header class="journal-opening">
+        <span class="journal-folio" aria-label="第 02 章">02</span>
+        <div class="journal-lede">
+          <h1>Oceanus Folk 的传播年代</h1>
+          <p v-if="peakRow && folkTotal">全期外向引用中，<strong>{{ (boomShare * 100).toFixed(1) }}%</strong> 集中在 2023—2030 年，最高的一年是 {{ peakRow.year }} 年。</p>
+          <p v-else>沿年代比较各流派的外向引用与灵感来源。</p>
         </div>
-        <span class="op-tag">来源 → 受影响者</span>
-      </div>
+        <aside class="journal-margin" aria-label="当前年代谱口径">
+          <p><strong>{{ allGenres.length }} 种</strong>可探索流派</p>
+          <p><strong>{{ formatCount(filteredFlows.reduce((s, f) => s + f.value, 0)) }} 条</strong>当前筛选的跨流派引用</p>
+        </aside>
+      </header>
 
-      <div class="op-kpis">
-        <div class="op-kpi"><b>{{ allGenres.length }}</b><span>流派</span></div>
-        <div class="op-kpi"><b>{{ (trends.years || []).length }}</b><span>年度截面</span></div>
-        <div class="op-kpi"><b>{{ formatCount(folkWorks) }}</b><span>Oceanus Folk 作品</span></div>
-        <div class="op-kpi"><b>{{ formatCount(filteredFlows.reduce((s, f) => s + f.value, 0)) }}</b><span>当前筛选影响事件</span></div>
-        <div class="op-kpi"><b>{{ peakRow?.year ?? '—' }}</b><span>外向事件峰值年</span></div>
-        <div class="op-kpi"><b>{{ spreadLabel }}</b><span>扩散形态判定</span></div>
-      </div>
-
-      <section class="op-card" style="padding: 0; margin-bottom: 14px">
+      <details class="op-card atlas-filter-card atlas-genre-filters">
+        <summary><span>调整地图筛选</span><small>{{ yearRange.join('—') }} · {{ metricOptions.find(item => item.value === metric)?.label }}</small></summary>
         <div class="op-toolbar">
           <span class="op-tool-label">趋势指标</span>
           <div class="op-chips">
             <button
               v-for="item in metricOptions" :key="item.value" type="button"
               class="op-chip" :class="{ on: metric === item.value }"
+              :aria-pressed="metric === item.value"
               @click="metric = item.value"
             >{{ item.label }}</button>
           </div>
-          <select class="op-select" @change="addGenre">
+          <select class="op-select" aria-label="添加对比流派" @change="addGenre">
             <option value="">＋ 添加流派…</option>
             <option v-for="genre in allGenres" :key="genre" :value="genre">{{ genre }}</option>
           </select>
         </div>
         <div class="op-toolbar">
-          <FilterPanel v-model="visibleFlowTypes" label="影响关系" :options="flowTypeOptions" />
+          <FilterPanel v-model="visibleFlowTypes" label="引用关系类型" :options="flowTypeOptions" />
         </div>
         <div class="op-toolbar">
-          <FilterPanel v-model="focusGenres" label="对比流派" :options="genreOptions" />
-          <TimeScrubber v-model="yearRange" :min="1975" :max="2040" />
+          <TimeScrubber v-model="yearRange" :min="overview.year_fields.release_year.min" :max="overview.meta.cutoff_year" />
+          <details class="atlas-comparison-filter">
+            <summary>对比流派 · {{ focusGenres.length }} 个</summary>
+            <FilterPanel v-model="focusGenres" :label="null" :options="genreOptions" />
+          </details>
         </div>
-      </section>
+      </details>
 
-      <section class="op-card" style="margin-bottom: 14px">
-        <header>
-          <h3>流派影响年度轨迹</h3>
-          <p>点击曲线可锁定年份查看当年证据 · {{ metricOptions.find(item => item.value === metric)?.label }}</p>
-        </header>
-        <ChartPanel :option="trendOption" height="320px" @chart-click="onTrendClick" />
-        <p class="op-note">每条曲线为一个流派的年度指标；5 年滚动均值用于区分单年脉冲与持续扩散。零计数年份已补齐，缺失分母保持 null 而不渲染为 0。</p>
-      </section>
+      <div class="op-grid atlas-graph-grid atlas-genre-main">
+        <section class="journal-spread-board">
+          <header class="journal-figure-head">
+            <div>
+              <h2>{{ trendMode === 'spread' ? '跨页年代谱' : trendMode === 'map' ? '跨流派年代地图' : '年度传播轨迹' }}</h2>
+              <p>{{ trendMode === 'line' ? '折线连接已观察的年度值' : '色带厚度表示年度指标，弧线指向受影响的流派' }}</p>
+            </div>
+            <div class="atlas-segments" role="group" aria-label="传播图表形式">
+              <button type="button" :aria-pressed="trendMode === 'spread'" @click="trendMode = 'spread'">年代谱</button>
+              <button type="button" :aria-pressed="trendMode === 'map'" @click="trendMode = 'map'">年代地图</button>
+              <button type="button" :aria-pressed="trendMode === 'line'" @click="trendMode = 'line'">年度曲线</button>
+            </div>
+          </header>
+          <GenreChronicle v-if="trendMode === 'spread'" :tracks="spreadTracks" :years="chartYears" :flows="filteredFlows"
+            :featured-genre="featuredGenre" :selected-year="selectedYear" :selected-genre="selectedGenre || selectedCell?.source"
+            :ratio="isRatio" @select-year="chooseMapYear" @inspect="evidencePanel?.scrollIntoView({ block: 'start' })"
+            @select-flow="flow => choosePair(flow.source, flow.target, flow.year)" />
+          <template v-else-if="trendMode === 'map'">
+            <GenreCarta :tracks="scoreTracks" :years="chartYears" :flows="filteredFlows"
+              :featured-genre="featuredGenre" :selected-year="selectedYear" :selected-genre="selectedGenre || selectedCell?.source"
+              :ratio="isRatio" @select-year="chooseMapYear" @inspect="evidencePanel?.scrollIntoView({ block: 'start' })"
+              @select-flow="flow => choosePair(flow.source, flow.target, flow.year)" />
+            <div class="atlas-map-caption">
+              <span>拖动浏览 · Ctrl + 滚轮缩放 · 点选色带和弧线查看证据</span>
+              <button type="button" class="atlas-inline" :aria-pressed="showAllLanes" @click="showAllLanes = !showAllLanes">
+                <AppIcon :name="showAllLanes ? 'flow' : 'expand'" :size="15" />
+                {{ showAllLanes ? '聚焦对比流派' : '查看全部 ' + allGenres.length + ' 个流派' }}
+              </button>
+            </div>
+          </template>
+          <ChartPanel v-else :option="trendOption" height="400px" @chart-click="onTrendClick" />
+        </section>
+        <aside class="op-card atlas-genre-relationships journal-relation-index">
+          <div>
+            <div class="atlas-inspector-top"><span>双向关系</span><span>{{ selectedYear ?? yearRange.join('—') }} 年</span></div>
+            <h2>{{ lensGenre }}</h2>
+            <button v-if="selectedCell || selectedYear != null" type="button" class="atlas-inline"
+              @click="evidencePanel?.scrollIntoView({ block: 'start' })">查看筛选证据<AppIcon name="arrow" :size="15" /></button>
+          </div>
+          <div v-for="(entries, side) in { in: lensIn, out: lensOut }" :key="side" class="atlas-flow-list">
+            <h3><i :style="{ background: FLOW_TONES[side] }" />{{ side === 'in' ? '灵感流入' : '影响流出' }}</h3>
+            <button v-for="[name, count] in entries" :key="name" type="button" class="atlas-flow-row"
+              @click="side === 'in' ? choosePair(name, lensGenre, selectedYear) : choosePair(lensGenre, name, selectedYear)">
+              <span>{{ name }}</span><strong>{{ count }}</strong><AppIcon name="arrow" :size="14" />
+            </button>
+            <p v-if="!entries.length" class="atlas-subtle">当前范围无记录</p>
+          </div>
+        </aside>
+      </div>
 
+      <div class="journal-interlude">
+        <h2>核对影响从哪里来</h2>
+        <p>矩阵的行是来源，列是受影响流派。点选流派对、年份或弧线，下面会列出对应的原始关系。</p>
+      </div>
       <div class="op-grid even">
         <section class="op-card">
           <header><h3>流派影响流向矩阵</h3><p>纵轴来源 · 横轴受影响者 · 点击格子钻取</p></header>
-          <ChartPanel :option="matrixOption" height="360px" @chart-click="onMatrixClick" />
+          <ChartPanel v-if="matrixCells.length" :option="matrixOption" height="360px" @chart-click="onMatrixClick" />
+          <p v-else class="op-state">当前筛选下没有可显示的跨流派关系。</p>
           <p class="op-note">颜色为当前时间窗与关系类型筛选下的影响事件总量；自流（同一流派内部）已排除，避免与内部事件混淆。</p>
         </section>
         <section class="op-card">
           <header><h3>五类影响关系的年代构成</h3><p>堆叠面积 · 当前筛选</p></header>
-          <ChartPanel :option="flowTypeOption" height="360px" />
+          <ChartPanel v-if="filteredFlows.length" :option="flowTypeOption" height="360px" />
+          <p v-else class="op-state">当前筛选下没有可汇总的引用。</p>
           <p class="op-note">风格借鉴、翻唱、采样、片段引用与歌词引用在原始图中方向相反，本视图统一为「来源 → 受影响者」并保留原始端点。</p>
         </section>
       </div>
 
-      <section class="op-card" style="margin-top: 14px">
+      <section ref="evidencePanel" class="op-card atlas-evidence-panel">
         <header>
           <h3>证据钻取</h3>
-          <p v-if="selectedCell">{{ selectedCell.source }} → {{ selectedCell.target }}</p>
-          <p v-else-if="selectedYear != null">{{ selectedYear }} 年影响事件</p>
+          <p v-if="selectedCell">{{ selectedCell.source }} → {{ selectedCell.target }}{{ selectedYear != null ? ' · ' + selectedYear : '' }}</p>
+          <p v-else-if="selectedYear != null">{{ selectedGenre }} · {{ selectedYear }} 年的引用</p>
           <p v-else>点击上方矩阵或趋势图以筛选，默认展示前 12 条</p>
+          <button v-if="selectedCell || selectedYear != null" type="button" class="atlas-inline" @click="clearEvidence">清除定位</button>
         </header>
         <div class="op-scroll">
           <table class="op-table">
@@ -346,16 +448,17 @@ const folkWorks = computed(() => overview.value?.genre_work_counts?.['Oceanus Fo
                 <td>{{ flow.source }}</td><td>{{ flow.target }}</td>
                 <td>{{ EDGE_LABELS[flow.type] || flow.type }}</td>
                 <td class="num">{{ flow.year }}</td><td class="num">{{ flow.value }}</td>
-                <td><span class="op-tag">{{ evidenceFor(flow).join(' / ') || '—' }}</span></td>
+                <td><code>{{ flow.event_ids.slice(0, 3).join(' / ') || '—' }}</code></td>
               </tr>
             </tbody>
           </table>
         </div>
+        <p v-if="!drillRows.length" class="atlas-subtle">当前时间窗与关系类型下没有匹配的引用。</p>
         <p class="op-note">每行都可回查 <code>MC1_graph.json</code> 的原始关系 ID；推导到艺人的联系不证明私下合作或因果影响。</p>
       </section>
 
-      <h3 style="font-size: 14px; font-weight: 500; color: #17324d; margin: 20px 0 10px">数据洞见</h3>
-      <div class="op-insights">
+      <div class="journal-interlude"><h2>读图笔记</h2></div>
+      <div class="op-insights journal-notes">
         <article class="op-insight">
           <span class="tag">洞见 01 · 渐进 vs 间歇</span>
           <h4>既非单年爆发，也非匀速渐进</h4>
@@ -377,6 +480,7 @@ const folkWorks = computed(() => overview.value?.genre_work_counts?.['Oceanus Fo
           <p>{{ formatCount(issues.influence_chronology) }} 条时间顺序存疑的引用、1 条自环与 67 条无日期的艺人间引用被排除在年度统计外（但保留在结构证据中）；{{ formatCount(issues.notable_without_chart_year) }} 部 notable 作品缺登榜年份，不能补成发行年。此外 2032 年后仅剩 {{ (lateShare * 100).toFixed(1) }}% 的有日期外向事件，这反映后期借鉴作品样本变少，不能解读为「影响力消失」。</p>
         </article>
       </div>
+      <JournalPager module="genre" />
     </template>
   </div>
 </template>

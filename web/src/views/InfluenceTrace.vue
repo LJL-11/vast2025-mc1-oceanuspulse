@@ -2,15 +2,18 @@
 import { computed, onMounted, ref } from 'vue'
 import { dataService, friendlyDataError } from '../lib/dataService'
 import { useAppStore } from '../stores/useAppStore'
+import CreditScore from '../components/CreditScore.vue'
 import ForceGraph from '../components/ForceGraph.vue'
 import TimeScrubber from '../components/TimeScrubber.vue'
 import FilterPanel from '../components/FilterPanel.vue'
 import DetailCard from '../components/DetailCard.vue'
 import ChartPanel from '../components/ChartPanel.vue'
+import AppIcon from '../components/AppIcon.vue'
+import JournalPager from '../components/JournalPager.vue'
 import {
   NODE_COLORS, NODE_LABELS, CREDIT_EDGE_TYPES, INFLUENCE_EDGE_TYPES,
   EDGE_COLOR_CREDIT, EDGE_COLOR_INFLUENCE,
-  CHART_MUTED, CHART_GRID, formatCount,
+  CHART_MUTED, CHART_GRID, formatCount, genreColor,
 } from '../lib/palette'
 
 const store = useAppStore()
@@ -20,7 +23,17 @@ const overview = ref(null)
 const ego = ref(null)
 const sailor = ref(null)
 const search = ref('')
+const graphMode = ref('credits')
 const edgeMode = ref('all')
+const pathMode = ref('upstream')
+const selectedPath = ref(null)
+const graphCard = ref(null)
+const pathCard = ref(null)
+const creditScope = ref(null)
+const careerMode = ref('works')
+const careerRows = ref([])
+const careerLoading = ref(false)
+const careerError = ref('')
 
 onMounted(async () => {
   try {
@@ -88,44 +101,92 @@ const careerYears = computed(() => {
   return Array.from({ length: end - start + 1 }, (_, i) => start + i)
 })
 const careerOption = computed(() => {
-  const years = careerYears.value
-  const perYear = years.map(year => works.value.filter(work => work.node.release_year === year).length)
-  let cumulative = 0
-  const cumulativeSeries = perYear.map(count => (cumulative += count))
+  const collaboration = careerMode.value === 'collaboration' && careerRows.value.length
+  const years = collaboration ? careerRows.value.map(row => row.year) : careerYears.value
+  const perYear = collaboration
+    ? careerRows.value.map(row => row.rolling.collaborator_count)
+    : years.map(year => works.value.filter(work => work.node.release_year === year).length)
+  let count = 0
+  const cumulative = collaboration
+    ? careerRows.value.map(row => row.cumulative.collaborator_count)
+    : perYear.map(value => (count += value))
+  const labels = collaboration ? ['累计合作者', '近五年活跃合作者'] : ['累计作品', '当年新作']
   return {
+    animationDuration: 240,
     tooltip: { trigger: 'axis' },
-    legend: { data: ['累计作品', '当年新作'], top: 0, textStyle: { fontSize: 11, color: CHART_MUTED } },
-    grid: { left: 42, right: 18, top: 30, bottom: 28 },
+    legend: { data: labels, top: 0, textStyle: { fontSize: 12, color: CHART_MUTED } },
+    grid: { left: 41, right: 24, top: 42, bottom: 31 },
     xAxis: {
       type: 'category', data: years, boundaryGap: false,
       axisLabel: { fontSize: 10, color: CHART_MUTED },
       axisLine: { lineStyle: { color: CHART_GRID } },
     },
     yAxis: {
-      type: 'value', name: '作品数', nameTextStyle: { fontSize: 10, color: CHART_MUTED },
+      type: 'value', name: collaboration ? '合作者' : '作品', nameTextStyle: { fontSize: 11, color: CHART_MUTED },
       axisLabel: { fontSize: 10, color: CHART_MUTED }, splitLine: { lineStyle: { color: CHART_GRID } },
     },
     series: [
       {
-        name: '累计作品', type: 'line', smooth: true, showSymbol: false,
-        lineStyle: { width: 2.4, color: '#2A9D8F' }, itemStyle: { color: '#2A9D8F' },
-        areaStyle: { color: 'rgba(42,157,143,0.13)' }, data: cumulativeSeries,
+        name: labels[0], type: 'line', step: 'end', showSymbol: false,
+        lineStyle: { width: 2.5, color: '#256c99' }, itemStyle: { color: '#256c99' },
+        areaStyle: { color: 'rgba(37,108,153,0.11)' }, data: cumulative,
       },
       {
-        name: '当年新作', type: 'scatter', symbolSize: 9,
-        itemStyle: { color: '#E8734A' }, data: perYear,
+        name: labels[1], type: collaboration ? 'line' : 'bar', barMaxWidth: 12, symbolSize: 6,
+        lineStyle: { width: 2, color: '#b36935' },
+        itemStyle: { color: '#b36935', borderRadius: [3, 3, 0, 0] }, data: perYear,
       },
     ],
   }
 })
 function onCareerClick(params) {
-  const year = careerYears.value[params.dataIndex]
+  const year = careerOption.value.xAxis.data[params.dataIndex]
   if (year) store.setYearRange([year, year])
+}
+async function switchCareer(mode) {
+  if (mode === 'works' || careerRows.value.length) {
+    careerMode.value = mode
+    return
+  }
+  if (careerLoading.value) return
+  careerLoading.value = true
+  careerError.value = ''
+  try {
+    const history = await dataService.networkDynamics()
+    const rows = history.artists.find(artist => artist.id === sailor.value.focus_id)?.rows
+    if (!rows?.length) throw new Error('当前截面没有可用的合作轨迹。')
+    careerRows.value = rows
+    careerMode.value = mode
+  } catch (cause) {
+    careerError.value = friendlyDataError(cause)
+  } finally {
+    careerLoading.value = false
+  }
 }
 
 const topCollaborators = computed(() => (sailor.value?.collaborators || []).slice(0, 12))
+const scoreCollaborators = computed(() => topCollaborators.value.map((item, index) => ({
+  ...item, color: genreColor(index), type: nodeById.value.get(item.id)?.type ?? 'Person',
+})))
 const maxShared = computed(() => Math.max(1, ...topCollaborators.value.map(item => item.shared_work_count)))
-const upstreamPaths = computed(() => (sailor.value?.upstream_paths || []).slice(0, 12))
+const scopeWorks = computed(() => (creditScope.value?.ids ?? []).map(id => nodeById.value.get(id)).filter(Boolean)
+  .sort((a, b) => (a.release_year ?? Infinity) - (b.release_year ?? Infinity) || a.id - b.id))
+const scopePaths = computed(() => {
+  const ids = creditScope.value?.ids ? new Set(creditScope.value.ids) : null
+  return Object.fromEntries(['upstream', 'downstream'].map(side => {
+    const rows = sailor.value?.[side + '_paths'] ?? []
+    return [side, ids ? rows.filter(path => path.node_path?.some(id => ids.has(id))) : rows]
+  }))
+})
+const paths = computed(() => scopePaths.value[pathMode.value])
+const pathIds = computed(() => inInfluenceDirection(selectedPath.value?.event_ids))
+const directedPathNodes = computed(() => inInfluenceDirection(selectedPath.value?.node_path))
+const pathOnGraph = computed(() => (ego.value?.links || []).filter(link =>
+  pathIds.value.includes(link.id)
+  && visibleEdgeTypes.value.includes(link.type)
+  && visibleTypes.value.includes(nodeById.value.get(link.source)?.type)
+  && visibleTypes.value.includes(nodeById.value.get(link.target)?.type),
+).length)
 
 const searchResults = computed(() => {
   const query = search.value.trim().toLowerCase()
@@ -136,6 +197,8 @@ const searchResults = computed(() => {
 })
 
 function selectNode(node) {
+  selectedPath.value = null
+  creditScope.value = null
   if (!node) return store.clearFocus()
   store.selectNode(node)
 }
@@ -143,22 +206,49 @@ function pickCollaborator(item) {
   const node = nodeById.value.get(item.id) || {
     id: item.id, name: item.name, display_name: item.name, type: 'Person',
   }
-  store.selectNode(node)
+  if (!visibleTypes.value.includes(node.type)) visibleTypes.value = [...visibleTypes.value, node.type]
+  selectNode(node)
+  creditScope.value = { name: item.name, ids: item.work_ids, isCollaborator: true }
+}
+function pickCreditWork(node) {
+  selectNode(node)
+  creditScope.value = { name: node.display_name || node.name, ids: [node.id], isCollaborator: false }
+}
+function switchGraph(mode) {
+  graphMode.value = mode
+  if (mode === 'credits') selectedPath.value = null
 }
 function pickPath(path) {
+  switchGraph('network')
+  selectedPath.value = path
+  edgeMode.value = 'influence'
+  visibleTypes.value = Object.keys(NODE_COLORS)
   const last = (path.node_path || []).at(-1)
   const node = nodeById.value.get(last)
   if (node) store.selectNode(node)
 }
+function switchPathMode(mode) {
+  pathMode.value = mode
+  selectedPath.value = null
+}
+function inInfluenceDirection(items = []) {
+  return pathMode.value === 'upstream' ? [...items].reverse() : items
+}
 function pathLabel(path) {
-  const parts = (path.node_path || []).map(id => {
+  return inInfluenceDirection(path.node_path).map(id => {
     const node = nodeById.value.get(id)
     return node ? (node.display_name || node.name) : String(id)
-  })
-  return parts.length > 3 ? `… → ${parts.slice(-3).join(' → ')}` : parts.join(' → ')
+  }).join(' → ')
 }
 function pickSearchResult(node) {
-  store.selectNode(node)
+  const collaborator = scoreCollaborators.value.find(item => item.id === node.id)
+  if (collaborator) pickCollaborator(collaborator)
+  else if (works.value.some(work => work.id === node.id)) pickCreditWork(node)
+  else {
+    switchGraph('network')
+    selectNode(node)
+  }
+  if (!visibleTypes.value.includes(node.type)) visibleTypes.value = [...visibleTypes.value, node.type]
   search.value = ''
 }
 
@@ -168,44 +258,43 @@ const components = computed(() => overview.value?.counts?.weak_components ?? 16)
 </script>
 
 <template>
-  <div>
+  <div class="atlas-analysis atlas-sailor">
     <div v-if="loading" class="op-state">正在加载 Sailor Shift 关系网络…</div>
     <div v-else-if="error" class="op-state error">
       {{ error }}<br><code>python -m pipeline.run</code>
     </div>
 
     <template v-else>
-      <div class="op-page-head">
-        <div>
-          <h2>模块一 · 影响力溯源</h2>
-          <p>Sailor Shift 的两跳网络、共同署名合作者与可回溯的音乐影响路径 · 对应赛题任务 1.1 / 1.2 / 1.3</p>
+      <header class="journal-opening">
+        <span class="journal-folio" aria-label="第 01 章">01</span>
+        <div class="journal-lede">
+          <h1>Sailor Shift 的合作者</h1>
+          <p v-if="topCollaborators.length"><strong>{{ topCollaborators[0].name }}</strong> 与 Sailor Shift 共同署名 {{ topCollaborators[0].shared_work_count }} 部作品，是这张谱上共同署名最多的合作者。</p>
+          <p v-else>从有发行年份的署名作品追查她的合作关系。</p>
         </div>
-        <span class="op-tag">预计算布局 · 无浏览器端力仿真</span>
-      </div>
+        <aside class="journal-margin" aria-label="人物特写口径">
+          <p><strong>{{ works.length }} 部</strong>有发行年份的直接署名作品</p>
+          <p><strong>{{ sailor.collaborators.length }} 位</strong>共同署名合作者</p>
+        </aside>
+      </header>
 
-      <div class="op-kpis">
-        <div class="op-kpi"><b>{{ formatCount(overview.counts.nodes) }}</b><span>图谱节点</span></div>
-        <div class="op-kpi"><b>{{ formatCount(overview.counts.links) }}</b><span>关系边</span></div>
-        <div class="op-kpi"><b>{{ works.length }}</b><span>Sailor 直接署名作品</span></div>
-        <div class="op-kpi"><b>{{ (sailor.collaborators || []).length }}</b><span>共同署名合作者</span></div>
-        <div class="op-kpi"><b>{{ (sailor.inspiration_sources || []).length }}</b><span>上游影响来源</span></div>
-        <div class="op-kpi"><b>{{ (sailor.directly_influenced || []).length }}</b><span>下游受影响对象</span></div>
-      </div>
-
-      <section class="op-card" style="padding: 0; margin-bottom: 14px">
+      <details class="op-card atlas-filter-card atlas-genre-filters">
+        <summary><span>筛选实体与年份</span><small>{{ yearRange[0] === yearRange[1] ? yearRange[0] + ' 年' : yearRange.join('—') }}</small></summary>
         <div class="op-toolbar">
           <FilterPanel v-model="visibleTypes" label="实体类型" :options="typeOptions" />
-          <div class="op-chips">
+          <div v-if="graphMode === 'network'" class="op-chips" role="group" aria-label="关系类型">
             <button
               v-for="mode in edgeModes" :key="mode.key" type="button"
               class="op-chip" :class="{ on: edgeMode === mode.key }"
+              :aria-pressed="edgeMode === mode.key"
               @click="edgeMode = mode.key"
             >{{ mode.label }}</button>
           </div>
         </div>
         <div class="op-toolbar">
-          <TimeScrubber v-model="yearRange" :min="1975" :max="2040" />
-          <input v-model="search" class="op-input" type="search" placeholder="搜索实体名…" style="width: 170px">
+          <TimeScrubber v-model="yearRange" :min="overview.year_fields.release_year.min" :max="overview.meta.cutoff_year" />
+          <input v-model="search" class="op-input" type="search" aria-label="搜索两跳网络"
+            placeholder="搜索网络中的实体" @keydown.enter.prevent="searchResults[0] && pickSearchResult(searchResults[0])">
           <div v-if="searchResults.length" class="op-chips">
             <button
               v-for="node in searchResults" :key="node.id" type="button"
@@ -213,79 +302,139 @@ const components = computed(() => overview.value?.counts?.weak_components ?? 16)
             >{{ node.display_name || node.name }}</button>
           </div>
         </div>
-      </section>
+      </details>
 
-      <div class="op-grid two">
-        <section class="op-card">
+      <div class="op-grid two atlas-graph-grid" :class="{ 'journal-credit-layout': graphMode === 'credits' }">
+        <section ref="graphCard" class="op-card atlas-ego-card">
           <header>
-            <h3>Sailor Shift 两跳关系网络</h3>
-            <p>{{ (ego.nodes || []).length }} 节点 / {{ (ego.links || []).length }} 边</p>
+            <div>
+              <h3>{{ graphMode === 'credits' ? '共同署名谱' : '两跳关系网络' }}</h3>
+              <p>{{ graphMode === 'credits' ? '按发行年份从上往下读，沿弧线追踪同一位合作者' : ego.nodes.length + ' 节点 · ' + ego.links.length + ' 条边' }}</p>
+            </div>
+            <div class="atlas-segments" role="group" aria-label="Sailor Shift 主图">
+              <button type="button" :aria-pressed="graphMode === 'credits'" @click="switchGraph('credits')">署名谱</button>
+              <button type="button" :aria-pressed="graphMode === 'network'" @click="switchGraph('network')">两跳网络</button>
+            </div>
           </header>
-          <ForceGraph
+          <div v-if="graphMode === 'credits'" class="op-legend atlas-graph-key">
+            <span><i style="background: #235c78" />歌曲</span>
+            <span><i style="background: #aa5639" />专辑</span>
+            <span><i class="line" style="background: #537e85" />颜色与右侧合作者名录对应</span>
+          </div>
+          <div v-else class="op-legend atlas-graph-key">
+            <span><i class="line" :style="{ background: EDGE_COLOR_INFLUENCE }" />音乐影响 · 来源 → 受影响者</span>
+            <span><i class="line" :style="{ background: EDGE_COLOR_CREDIT }" />署名、录制与成员</span>
+            <span>跳数按完整网络计算 · 年份筛选淡出区间外作品</span>
+          </div>
+          <div v-if="selectedPath" class="atlas-path-status">
+            <span>图中显示 {{ pathOnGraph }} / {{ pathIds.length }} 条路径边</span>
+            <button type="button" class="atlas-inline" @click="selectedPath = null">清除路径</button>
+          </div>
+          <CreditScore v-if="graphMode === 'credits'"
+            :works="works" :collaborators="scoreCollaborators" :year-range="yearRange"
+            :focus-id="focusId" :visible-types="visibleTypes"
+            @work="pickCreditWork" @collaborator="pickCollaborator" @year="year => store.setYearRange([year, year])"
+          />
+          <ForceGraph v-else
             :nodes="ego.nodes || []" :links="ego.links || []"
             :visible-types="visibleTypes" :visible-edge-types="visibleEdgeTypes"
-            :year-range="yearRange" :focus-id="focusId"
+            :year-range="yearRange" :anchor-id="sailor.focus_id" :focus-id="focusId"
+            :path-ids="pathIds" :path-nodes="directedPathNodes"
             @select="selectNode"
           />
-          <div class="op-legend" style="margin-top: 12px">
-            <span v-for="(label, type) in NODE_LABELS" :key="type">
-              <i :style="{ background: NODE_COLORS[type] }" />{{ label }}
-            </span>
-            <span><i class="line" :style="{ background: EDGE_COLOR_INFLUENCE }" />音乐影响（带箭头）</span>
-            <span><i class="line" :style="{ background: EDGE_COLOR_CREDIT }" />署名 / 录制 / 成员</span>
-          </div>
-          <p class="op-note">橙色箭头方向为「来源 → 受影响者」，与原图引用方向相反；灰蓝线只表示共同参与作品。时间窗外的作品节点会淡化但不会被删除，以保留网络结构。</p>
         </section>
 
-        <div class="op-grid" style="gap: 14px; align-content: start">
+        <div class="op-grid journal-credit-index">
+          <section v-if="creditScope" class="op-card journal-credit-evidence" aria-label="署名与影响证据">
+            <header><h3>{{ creditScope.name }}</h3><p>{{ creditScope.isCollaborator ? '共同署名记录' : '作品影响记录' }}</p></header>
+            <ul v-if="creditScope.isCollaborator">
+              <li v-for="work in scopeWorks" :key="work.id">
+                <button type="button" class="atlas-path-link" @click="pickCreditWork(work)">{{ work.display_name || work.name }}</button>
+                <span>{{ work.release_year ?? '年份未知' }}</span>
+              </li>
+            </ul>
+            <button type="button" class="atlas-inline" @click="pathCard?.scrollIntoView({ block: 'start' })">
+              涉及这些作品的路径 · 上游 {{ scopePaths.upstream.length }} / 下游 {{ scopePaths.downstream.length }}
+              <AppIcon name="arrow" :size="15" />
+            </button>
+          </section>
           <DetailCard
             :node="store.focusNode" :degree="focusDegree" :link-types="focusLinkTypes"
-            @close="store.clearFocus()" @jump="store.focusGenre"
+            @close="selectNode(null)" @jump="store.focusGenre"
           />
           <section class="op-card">
             <header><h3>共同署名合作者 Top 12</h3><p>按共同作品数 · 点击聚焦</p></header>
-            <div
-              v-for="item in topCollaborators" :key="item.id"
-              class="op-bar-row" @click="pickCollaborator(item)"
+            <button
+              v-for="item in scoreCollaborators" :key="item.id"
+              type="button" class="op-bar-row atlas-collab-row"
+              :aria-pressed="focusId === item.id" @click="pickCollaborator(item)"
             >
               <span class="op-bar-name" :title="item.name">{{ item.name }}</span>
               <div class="op-bar-track">
-                <div class="op-bar-fill" :style="{ width: `${(item.shared_work_count / maxShared) * 100}%` }" />
+                <div class="op-bar-fill" :style="{ width: `${(item.shared_work_count / maxShared) * 100}%`, background: item.color }" />
               </div>
               <span class="op-bar-value">{{ item.shared_work_count }}</span>
-            </div>
+            </button>
             <p class="op-note">共同署名只说明参与同一作品，不代表私人关系；同一作品上的多个署名角色只计一次合作。</p>
           </section>
         </div>
       </div>
 
-      <div class="op-grid even" style="margin-top: 14px">
+      <div class="journal-interlude">
+        <h2>从共同署名追到引用</h2>
+        <p>署名谱记录谁一起做过作品。影响路径则沿引用边追查作品的来源和去向，点击路径可查看原始边 ID。</p>
+      </div>
+      <div class="op-grid even">
         <section class="op-card">
-          <header><h3>作品累积轨迹</h3><p>点击年份可锁定全局时间窗</p></header>
-          <ChartPanel :option="careerOption" height="250px" @chart-click="onCareerClick" />
-          <p class="op-note">面积线为累计直接署名作品，橙点为当年新作。数据中的 Sailor 2028 爆红单曲没有 notoriety 记录，因此本图依据作品发行年而非登榜年构建。</p>
+          <header>
+            <h3>职业时间谱</h3>
+            <div class="atlas-segments" role="group" aria-label="职业时间谱指标">
+              <button type="button" :aria-pressed="careerMode === 'works'" @click="switchCareer('works')">作品</button>
+              <button type="button" :aria-pressed="careerMode === 'collaboration'" :disabled="careerLoading"
+                @click="switchCareer('collaboration')">{{ careerLoading ? '读取中' : '合作' }}</button>
+            </div>
+          </header>
+          <p v-if="careerError" class="atlas-subtle" role="status">{{ careerError }}</p>
+          <ChartPanel :option="careerOption" height="282px" @chart-click="onCareerClick" />
         </section>
-        <section class="op-card">
-          <header><h3>可回溯的上游影响路径</h3><p>最多三跳 · 保留原始边 ID</p></header>
+        <section ref="pathCard" class="op-card journal-path-card">
+          <header>
+            <h3>影响路径</h3>
+            <div class="atlas-segments" role="group" aria-label="路径方向">
+              <button type="button" :aria-pressed="pathMode === 'upstream'" @click="switchPathMode('upstream')">上游</button>
+              <button type="button" :aria-pressed="pathMode === 'downstream'" @click="switchPathMode('downstream')">下游</button>
+            </div>
+          </header>
+          <div v-if="creditScope" class="atlas-path-status">
+            <span>涉及 {{ creditScope.name }} 的{{ creditScope.isCollaborator ? '共同署名作品' : '作品' }} · {{ paths.length }} 条</span>
+            <button type="button" class="atlas-inline" @click="creditScope = null; selectedPath = null">查看全部路径</button>
+          </div>
+          <div v-if="selectedPath" class="atlas-path-evidence">
+            <span>{{ pathLabel(selectedPath) }}</span>
+            <div><code v-for="id in pathIds" :key="id">{{ id }}</code></div>
+            <button v-if="pathOnGraph" type="button" class="atlas-inline" @click="graphCard?.scrollIntoView({ block: 'start' })">
+              定位到关系图<AppIcon name="arrow" :size="15" />
+            </button>
+          </div>
           <div class="op-scroll">
             <table class="op-table">
-              <thead><tr><th>来源实体链路</th><th class="num">跳数</th><th class="num">年份</th><th>日期完整</th></tr></thead>
+              <thead><tr><th>来源 → 受影响者</th><th class="num">跳数</th><th class="num">事件年份</th></tr></thead>
               <tbody>
-                <tr v-for="path in upstreamPaths" :key="path.id" @click="pickPath(path)">
-                  <td>{{ pathLabel(path) }}</td>
+                <tr v-for="path in paths" :key="path.id" :class="{ 'atlas-picked': selectedPath?.id === path.id }">
+                  <td><button type="button" class="atlas-path-link" :aria-pressed="selectedPath?.id === path.id"
+                    @click="pickPath(path)">{{ pathLabel(path) }}</button></td>
                   <td class="num">{{ path.hops }}</td>
-                  <td class="num">{{ (path.event_years || []).filter(Boolean).join(', ') || '—' }}</td>
-                  <td><span class="op-tag">{{ path.fully_dated ? '是' : '否' }}</span></td>
+                  <td class="num">{{ inInfluenceDirection(path.event_years).map(year => year ?? '未知').join(' / ') }}</td>
                 </tr>
               </tbody>
             </table>
           </div>
-          <p class="op-note">路径只沿五类音乐影响边追溯，不经过录制、发行或普通合作边；点击一行可把末端实体设为焦点。</p>
+          <p v-if="!paths.length" class="atlas-subtle">{{ creditScope ? '这些作品没有记录到该方向的影响路径。' : '当前数据截面没有该方向的影响路径。' }}</p>
         </section>
       </div>
 
-      <h3 style="font-size: 14px; font-weight: 500; color: #17324d; margin: 20px 0 10px">数据洞见</h3>
-      <div class="op-insights">
+      <div class="journal-interlude"><h2>读图笔记</h2></div>
+      <div class="op-insights journal-notes">
         <article class="op-insight">
           <span class="tag">洞见 01 · 慢热型崛起</span>
           <h4>合作网络比单曲更能解释她的地位</h4>
@@ -307,6 +456,7 @@ const components = computed(() => overview.value?.counts?.weak_components ?? 16)
           <p>官方数据说明称 18 个连通分量，本组按弱连通重算为 {{ components }} 个，最大分量含 17,277 个节点。报告与答辩一律以本地复现结果为准，并保留原始记录不改。</p>
         </article>
       </div>
+      <JournalPager module="influence" />
     </template>
   </div>
 </template>
