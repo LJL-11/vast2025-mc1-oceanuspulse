@@ -52,7 +52,7 @@ const rows = computed(() => {
     </template>
     <template v-else>
       <h3>实体详情</h3>
-      <p class="op-note">在左侧关系图中点击任意节点，这里会显示它的类型、流派、年份、关系构成和可回溯的边 ID。再次点击空白处或按「清除」取消选择。</p>
+      <p class="op-note">在图中选择实体，查看它的类型、流派、年份与关系构成。</p>
     </template>
   </article>
 </template>

@@ -16,21 +16,19 @@ function toggle(value) {
 function selectAll() {
   emit('update:modelValue', props.options.map(item => item.value))
 }
-function clear() {
-  emit('update:modelValue', props.allowEmpty ? [] : [props.options[0]?.value].filter(Boolean))
-}
 </script>
 
 <template>
   <div class="op-filter">
-    <span class="op-tool-label">{{ label }}</span>
-    <div class="op-chips">
+    <span v-if="label" class="op-tool-label">{{ label }}</span>
+    <div class="op-chips" role="group" :aria-label="label || undefined">
       <button
         v-for="item in options"
         :key="item.value"
         type="button"
         class="op-chip"
         :class="{ on: modelValue.includes(item.value) }"
+        :aria-pressed="modelValue.includes(item.value)"
         :title="item.hint || item.label"
         @click="toggle(item.value)"
       >
