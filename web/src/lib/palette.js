@@ -1,9 +1,9 @@
 export const NODE_COLORS = {
-  Person: '#2A9D8F',
-  Song: '#5B8FF9',
-  Album: '#7262FD',
-  MusicalGroup: '#E8734A',
-  RecordLabel: '#9AA7B4',
+  Person: '#248480',
+  Song: '#568fc3',
+  Album: '#627996',
+  MusicalGroup: '#b66b41',
+  RecordLabel: '#9aa8b0',
 }
 
 export const NODE_LABELS = {
@@ -39,21 +39,21 @@ export const EDGE_COLOR_INFLUENCE = '#E8734A'
 export const FLOW_TYPES = INFLUENCE_EDGE_TYPES
 
 export const FLOW_COLORS = {
-  InStyleOf: '#E8734A',
-  CoverOf: '#F2B447',
-  DirectlySamples: '#2A9D8F',
-  InterpolatesFrom: '#5B8FF9',
-  LyricalReferenceTo: '#7262FD',
+  InStyleOf: '#355a7a',
+  CoverOf: '#ae6c33',
+  DirectlySamples: '#307c73',
+  InterpolatesFrom: '#6689b1',
+  LyricalReferenceTo: '#7a7655',
 }
 
 export const GENRE_PALETTE = [
-  '#E8734A', '#2A9D8F', '#5B8FF9', '#7262FD', '#F2B447', '#3C7D6E',
-  '#B85C8E', '#4A7BB5', '#C4613B', '#7C8AA0', '#8C6FD8', '#D1A03C',
+  '#2874a0', '#af6236', '#24827d', '#a65b56', '#607b54', '#597f9a',
+  '#a87945', '#476888', '#4b8e99', '#a26b78', '#7b8060', '#b38d41',
 ]
 
 export const CHART_TEXT = '#1F2D3D'
-export const CHART_MUTED = '#7A8899'
-export const CHART_GRID = '#EBF0F5'
+export const CHART_MUTED = '#536b80'
+export const CHART_GRID = '#e0eaf0'
 
 export function genreColor(index) {
   return GENRE_PALETTE[index % GENRE_PALETTE.length]

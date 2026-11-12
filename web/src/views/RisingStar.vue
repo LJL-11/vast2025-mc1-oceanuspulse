@@ -1,6 +1,10 @@
 <script setup>
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import * as echarts from 'echarts'
+import { computed, onMounted, ref, shallowRef } from 'vue'
+import ChartPanel from '../components/ChartPanel.vue'
+import AppIcon from '../components/AppIcon.vue'
+import RecordPlate from '../components/RecordPlate.vue'
+import JournalPager from '../components/JournalPager.vue'
+import { CHART_GRID, CHART_MUTED, formatCount } from '../lib/palette'
 
 const props = defineProps({
   dataUrl: {
@@ -8,615 +12,303 @@ const props = defineProps({
     default: () => `${import.meta.env.BASE_URL}data/processed/rising_star.json`,
   },
 })
-
-const data = ref(null)
+const data = shallowRef(null)
 const loading = ref(true)
 const error = ref('')
-const trajectoryEl = ref(null)
-const radarEl = ref(null)
-const leaderboardEl = ref(null)
+const selectedAct = ref(null)
+const careerMetric = ref('cumulative_works')
+const validationCard = ref(null)
 
-const charts = []
-const COLORS = ['#1a5fb4', '#e67e22', '#16a085']
-
-const predictions = computed(() => data.value?.predictions || [])
-const comparison = computed(() => data.value?.comparison || [])
-const validation = computed(() => data.value?.validation || {})
-const meta = computed(() => data.value?.meta || {})
-const leaderboard = computed(() => (data.value?.leaderboard || []).slice(0, 12))
-
-const cv = computed(() => validation.value.cross_validation || {})
-const univariate = computed(() => (validation.value.univariate?.tests || []).slice(0, 6))
-const coefficients = computed(() => (validation.value.coefficients || []).slice(0, 6))
-
-const featureLabels = computed(() => {
-  const map = {}
-  for (const item of data.value?.features || []) map[item.key] = item.label
-  return map
+const COLORS = ['#236890', '#a86238', '#28817c']
+const dimensions = [
+  { key: 'mentor', label: '导师', color: '#2d719f' },
+  { key: 'momentum', label: '动量', color: '#318b86' },
+  { key: 'quality', label: '质量', color: '#b87842' },
+  { key: 'collaboration', label: '合作', color: '#557c9b' },
+  { key: 'influence', label: '影响力', color: '#ae665d' },
+  { key: 'prestige', label: '厂牌', color: '#667c55' },
+]
+const careerMetrics = [
+  { key: 'cumulative_works', label: '累计作品' },
+  { key: 'cumulative_notable', label: '上榜作品' },
+  { key: 'cumulative_hits', label: '已知年份登榜' },
+]
+const predictions = computed(() => data.value?.predictions ?? [])
+const leaderboard = computed(() => (data.value?.leaderboard ?? []).slice(0, 12))
+const candidate = computed(() => predictions.value.find(item => item.act_id === selectedAct.value) ?? predictions.value[0])
+const comparison = computed(() => {
+  const artists = data.value?.comparison ?? []
+  if (!candidate.value?.timeline?.length) return artists
+  const referenceId = predictions.value[0]?.act_id
+  return artists.map(artist => artist.act_id === referenceId ? candidate.value : artist)
 })
+const meta = computed(() => data.value?.meta ?? {})
+const validation = computed(() => data.value?.validation ?? {})
+const cv = computed(() => validation.value.cross_validation ?? {})
+const featureLabels = computed(() => new Map((data.value?.features ?? []).map(item => [item.key, item.label])))
+const recordYears = computed(() => [...new Set(predictions.value.flatMap(
+  item => (item.timeline ?? []).map(row => row.year),
+))].sort((a, b) => a - b))
+const recordPeak = computed(() => Math.max(1, ...predictions.value.flatMap(
+  item => (item.timeline ?? []).map(row => row.works ?? 0),
+)))
+const recordCareerMax = computed(() => Math.max(1, ...predictions.value.flatMap(
+  item => (item.timeline ?? []).map(row => row.cumulative_works ?? 0),
+)))
+const labelOf = key => featureLabels.value.get(key) ?? key
 
-function labelOf(key) {
-  return featureLabels.value[key] || key
+function decimal(value, digits = 2) {
+  return Number.isFinite(value) ? value.toFixed(digits) : '—'
 }
-
-function pct(value) {
-  return `${Number(value).toFixed(2)}%`
+function percent(value) {
+  return Number.isFinite(value) ? (value * 100).toFixed(0) + '%' : '未计算'
 }
-
-function prob(value) {
-  return Number(value).toFixed(3)
+function activeYears(item) {
+  return item.debut === item.last_active ? item.debut + ' 年' : item.debut + '—' + item.last_active + ' 年'
 }
-
-function scoreTone(score) {
-  if (score >= 75) return 'high'
-  if (score >= 60) return 'mid'
-  return 'low'
+function chooseCandidate(id) {
+  if (predictions.value.some(item => item.act_id === id)) selectedAct.value = id
 }
-
+function openValidation() {
+  if (!validationCard.value) return
+  validationCard.value.open = true
+  validationCard.value.scrollIntoView({ block: 'start' })
+}
 async function load() {
   loading.value = true
   error.value = ''
   try {
     const response = await fetch(props.dataUrl)
-    if (!response.ok) throw new Error(`HTTP ${response.status}`)
+    if (!response.ok) throw new Error('HTTP ' + response.status)
     data.value = await response.json()
-  } catch (err) {
-    error.value = `无法读取 ${props.dataUrl}。请先在仓库根目录运行 python pipeline/features.py。`
+    selectedAct.value = predictions.value[0]?.act_id ?? null
+  } catch {
+    error.value = '预测数据未就绪。请在仓库根目录运行 python pipeline/features.py，再重新加载。'
   } finally {
     loading.value = false
-    // 图表容器位于 v-else 分支内：必须等 loading 结束、DOM 挂载后再初始化 ECharts。
-    await nextTick()
-    renderCharts()
   }
 }
+onMounted(load)
 
-function buildTrajectoryOption() {
-  const artists = comparison.value
-  const years = new Set()
-  for (const artist of artists) {
-    for (const row of artist.timeline || []) years.add(row.year)
-  }
-  const xAxis = [...years].sort((a, b) => a - b)
-  const series = []
-  artists.forEach((artist, index) => {
-    const byYear = new Map((artist.timeline || []).map((row) => [row.year, row]))
-    const cumulativeNotable = xAxis.map((year) => byYear.get(year)?.cumulative_notable ?? null)
-    const cumulativeHits = xAxis.map((year) => byYear.get(year)?.cumulative_hits ?? null)
-    series.push({
-      name: `${artist.name} · 累计上榜`,
-      type: 'line',
-      smooth: true,
-      showSymbol: false,
-      lineStyle: { width: 2.4, color: COLORS[index % COLORS.length] },
-      itemStyle: { color: COLORS[index % COLORS.length] },
-      data: cumulativeNotable,
-    })
-    series.push({
-      name: `${artist.name} · 累计登榜`,
-      type: 'line',
-      smooth: true,
-      showSymbol: false,
-      lineStyle: { width: 1.6, type: 'dashed', color: COLORS[index % COLORS.length] },
-      itemStyle: { color: COLORS[index % COLORS.length] },
-      data: cumulativeHits,
-    })
-  })
+const trajectoryOption = computed(() => {
+  const years = [...new Set(comparison.value.flatMap(artist => (artist.timeline ?? []).map(row => row.year)))].sort((a, b) => a - b)
   return {
-    backgroundColor: 'transparent',
-    tooltip: { trigger: 'axis' },
-    legend: { type: 'scroll', bottom: 0, textStyle: { fontSize: 11 } },
-    grid: { left: 44, right: 18, top: 28, bottom: 58 },
-    xAxis: {
-      type: 'category',
-      data: xAxis,
-      axisLabel: { fontSize: 10 },
-      axisLine: { lineStyle: { color: '#ddd' } },
-    },
-    yAxis: {
-      type: 'value',
-      name: '累计数量',
-      nameTextStyle: { fontSize: 11, color: '#888' },
-      splitLine: { lineStyle: { color: '#f0f0f0' } },
-      axisLabel: { fontSize: 10 },
-    },
-    series,
+    animationDuration: 250,
+    color: COLORS,
+    tooltip: { trigger: 'axis', renderMode: 'richText', confine: true },
+    legend: { type: 'scroll', top: 0, textStyle: { color: CHART_MUTED, fontSize: 12 } },
+    grid: { left: 42, right: 20, top: 44, bottom: 33 },
+    xAxis: { type: 'category', data: years, axisLabel: { color: CHART_MUTED, fontSize: 12, hideOverlap: true }, axisTick: { show: false } },
+    yAxis: { type: 'value', minInterval: 1, axisLabel: { color: CHART_MUTED, fontSize: 12 }, splitLine: { lineStyle: { color: CHART_GRID } } },
+    series: comparison.value.map((artist, index) => {
+      const yearly = new Map((artist.timeline ?? []).map(row => [row.year, row]))
+      return {
+        type: 'line', name: artist.name, step: 'end', showSymbol: true, symbolSize: 5,
+        lineStyle: { width: 2.25 }, emphasis: { focus: 'series' },
+        areaStyle: index === 0 ? { opacity: .095 } : undefined,
+        data: years.map(year => yearly.get(year)?.[careerMetric.value] ?? null),
+      }
+    }),
   }
-}
+})
 
-function buildRadarOption() {
-  const items = predictions.value
-  return {
-    backgroundColor: 'transparent',
-    tooltip: {},
-    legend: { bottom: 0, textStyle: { fontSize: 11 } },
-    radar: {
-      radius: '62%',
-      center: ['50%', '46%'],
-      indicator: [
-        { name: '导师', max: 100 },
-        { name: '动量', max: 100 },
-        { name: '质量', max: 100 },
-        { name: '合作', max: 100 },
-        { name: '影响力', max: 100 },
-        { name: '厂牌', max: 100 },
-      ],
-      axisName: { fontSize: 11, color: '#555' },
-      splitArea: { areaStyle: { color: ['#fafafa', '#f3f7fd'] } },
-    },
-    series: [
-      {
-        type: 'radar',
-        symbolSize: 4,
-        data: items.map((item, index) => ({
-          name: item.name,
-          value: [
-            item.strength_percentiles?.mentor ?? 0,
-            item.strength_percentiles?.momentum ?? 0,
-            item.strength_percentiles?.quality ?? 0,
-            item.strength_percentiles?.collaboration ?? 0,
-            item.strength_percentiles?.influence ?? 0,
-            item.strength_percentiles?.prestige ?? 0,
-          ],
-          lineStyle: { width: 2, color: COLORS[index % COLORS.length] },
-          itemStyle: { color: COLORS[index % COLORS.length] },
-          areaStyle: { opacity: 0.08 },
-        })),
-      },
-    ],
-  }
-}
+const radarOption = computed(() => ({
+  animationDuration: 250,
+  color: COLORS,
+  tooltip: { renderMode: 'richText', confine: true },
+  legend: { type: 'scroll', bottom: 0, textStyle: { color: CHART_MUTED, fontSize: 12 } },
+  radar: {
+    radius: '58%', center: ['50%', '47%'], splitNumber: 4,
+    indicator: dimensions.map(dimension => ({ name: dimension.label, max: 100 })),
+    axisName: { color: '#36536c', fontSize: 13 },
+    splitLine: { lineStyle: { color: ['#cbdde9'] } },
+    axisLine: { lineStyle: { color: '#cbdde9' } },
+    splitArea: { areaStyle: { color: ['#f7fbfd', '#edf5fa'] } },
+  },
+  series: [{
+    type: 'radar',
+    data: predictions.value.map((item, index) => ({
+      actId: item.act_id, name: item.name,
+      value: dimensions.map(dimension => item.strength_percentiles?.[dimension.key] ?? null),
+      symbolSize: item.act_id === selectedAct.value ? 6 : 3,
+      lineStyle: { width: item.act_id === selectedAct.value ? 2.7 : 1.3, color: COLORS[index % COLORS.length] },
+      itemStyle: { color: COLORS[index % COLORS.length] },
+      areaStyle: { opacity: item.act_id === selectedAct.value ? .17 : .05 },
+    })),
+  }],
+}))
 
-function buildLeaderboardOption() {
+const leaderboardOption = computed(() => {
   const rows = [...leaderboard.value].reverse()
   return {
-    backgroundColor: 'transparent',
+    animationDuration: 220,
     tooltip: {
-      trigger: 'axis',
+      trigger: 'axis', renderMode: 'richText', confine: true,
       axisPointer: { type: 'shadow' },
-      formatter: (params) => {
-        const item = rows[params[0].dataIndex]
-        return `${item.name}<br/>综合分：${item.score}<br/>模型概率：${prob(item.model_probability)}<br/>是否已登榜：${item.had_hit ? '是' : '否'}`
+      formatter: params => {
+        const row = rows[params[0].dataIndex]
+        return row.name + '\n综合分 ' + decimal(row.score) + '\n' + (row.had_hit ? '已有登榜记录' : '无登榜记录')
       },
     },
-    grid: { left: 128, right: 28, top: 12, bottom: 24 },
-    xAxis: {
-      type: 'value',
-      max: 100,
-      splitLine: { lineStyle: { color: '#f0f0f0' } },
-      axisLabel: { fontSize: 10 },
-    },
+    grid: { left: 119, right: 42, top: 8, bottom: 23 },
+    xAxis: { type: 'value', max: 100, splitLine: { lineStyle: { color: CHART_GRID } }, axisLabel: { color: CHART_MUTED, fontSize: 11 } },
     yAxis: {
-      type: 'category',
-      data: rows.map((row) => row.name),
-      axisLabel: { fontSize: 11, width: 116, overflow: 'truncate' },
-      axisLine: { show: false },
-      axisTick: { show: false },
+      type: 'category', data: rows.map(row => row.name),
+      axisLabel: { color: CHART_MUTED, fontSize: 12, width: 107, overflow: 'truncate', interval: 0 },
+      axisLine: { show: false }, axisTick: { show: false },
     },
-    series: [
-      {
-        type: 'bar',
-        barWidth: 12,
-        data: rows.map((row) => ({
-          value: row.score,
-          itemStyle: {
-            borderRadius: [0, 4, 4, 0],
-            color: row.had_hit ? '#c9d3df' : '#1a5fb4',
-          },
-        })),
-        label: { show: true, position: 'right', fontSize: 10, formatter: '{c}' },
-      },
-    ],
+    series: [{
+      type: 'bar', barMaxWidth: 12,
+      data: rows.map(row => ({
+        value: row.score, actId: row.act_id,
+        itemStyle: { color: row.act_id === selectedAct.value ? '#236890' : row.had_hit ? '#c6d4de' : '#74a7bf', borderRadius: [0, 4, 4, 0] },
+      })),
+      label: { show: true, position: 'right', fontSize: 11, color: CHART_MUTED },
+    }],
   }
-}
-
-function ensureChart(element) {
-  if (!element) return null
-  let chart = echarts.getInstanceByDom(element)
-  if (!chart) {
-    chart = echarts.init(element)
-    charts.push(chart)
-  }
-  return chart
-}
-
-function renderCharts() {
-  if (!data.value) return
-  ensureChart(trajectoryEl.value)?.setOption(buildTrajectoryOption(), true)
-  ensureChart(radarEl.value)?.setOption(buildRadarOption(), true)
-  ensureChart(leaderboardEl.value)?.setOption(buildLeaderboardOption(), true)
-}
-
-function resizeCharts() {
-  for (const chart of charts) chart.resize()
-}
-
-onMounted(() => {
-  load()
-  window.addEventListener('resize', resizeCharts)
 })
-
-onBeforeUnmount(() => {
-  window.removeEventListener('resize', resizeCharts)
-  for (const chart of charts) chart.dispose()
-  charts.length = 0
-})
-
-watch(data, () => nextTick(renderCharts))
 </script>
 
 <template>
-  <section class="rising-star">
-    <header class="page-header">
-      <div>
-        <h2>模块三 · Rising Star 画像与预测</h2>
-        <p class="subtitle">
-          数据快照 {{ meta.snapshot_year }} · 预测窗口
-          {{ (meta.prediction_window || []).join('–') }} · Oceanus Folk 下一代新星
-        </p>
-      </div>
-      <div class="kpis">
-        <div class="kpi">
-          <span class="kpi-value">{{ cv.auc ? cv.auc.toFixed(3) : '—' }}</span>
-          <span class="kpi-label">5 折 AUC</span>
-        </div>
-        <div class="kpi">
-          <span class="kpi-value">{{ meta.reference_acts ?? '—' }}</span>
-          <span class="kpi-label">参照 act</span>
-        </div>
-        <div class="kpi">
-          <span class="kpi-value">{{ predictions.length }}</span>
-          <span class="kpi-label">预测新星</span>
-        </div>
-      </div>
-    </header>
-
-    <p v-if="loading" class="state">加载中…</p>
-    <p v-else-if="error" class="state error">{{ error }}</p>
-
+  <div class="atlas-analysis atlas-rising">
+    <div v-if="loading || error" class="op-state" :class="{ error }" role="status">
+      <template v-if="error">{{ error }} <button type="button" class="atlas-button" @click="load">重新加载</button></template>
+      <template v-else>正在读取候选档案…</template>
+    </div>
     <template v-else>
-      <section class="prediction-grid">
-        <article
-          v-for="item in predictions"
-          :key="item.act_id"
-          class="prediction-card"
-          :class="scoreTone(item.score)"
-        >
-          <div class="card-head">
-            <span class="rank">#{{ item.rank }}</span>
-            <div class="card-title">
-              <h3>{{ item.name }}</h3>
-              <p>{{ item.primary_genre || 'Oceanus Folk' }} · {{ item.debut }}–{{ item.last_active }}</p>
-            </div>
-            <div class="score">
-              <strong>{{ item.score }}</strong>
-              <span>综合分</span>
-            </div>
-          </div>
+      <header class="journal-opening">
+        <span class="journal-folio" aria-label="第 03 章">03</span>
+        <div class="journal-lede">
+          <h1>Oceanus Folk 的下一代</h1>
+          <p v-if="predictions.length"><strong>{{ predictions[0].name }}</strong> 以 {{ decimal(predictions[0].score) }} 分居首，在重采样中有 {{ percent(predictions[0].bootstrap_rank1_share) }} 排在首位。</p>
+          <p v-else>依据观测截点以前的作品与合作记录比较候选。</p>
+        </div>
+        <aside class="journal-margin" aria-label="预测范围">
+          <p><strong>{{ meta.snapshot_year }} 年</strong>观测截点</p>
+          <p><strong>{{ formatCount(meta.reference_acts) }} 位</strong>Oceanus Folk 参照对象</p>
+        </aside>
+      </header>
 
-          <div class="metric-row">
-            <span>模型概率 {{ prob(item.model_probability) }}</span>
-            <span>Bootstrap 第一名 {{ pct((item.bootstrap_rank1_share || 0) * 100) }}</span>
-          </div>
-
-          <div class="strength-bars">
-            <div v-for="(value, key) in item.strength_percentiles" :key="key" class="bar-row">
-              <span class="bar-label">{{ labelOf(key) || key }}</span>
-              <div class="bar-track"><div class="bar-fill" :style="{ width: `${value}%` }" /></div>
-              <span class="bar-value">{{ value.toFixed(0) }}</span>
-            </div>
-          </div>
-
-          <ul class="evidence">
-            <li v-for="line in item.evidence" :key="line">{{ line }}</li>
-          </ul>
-
-          <div class="members">
-            <span class="members-label">成员</span>
-            <span>{{ item.member_names.join('、') }}</span>
-          </div>
-        </article>
+      <section v-if="predictions.length" class="atlas-record-shelf" aria-labelledby="atlas-record-heading" data-visual>
+        <header class="journal-figure-head">
+          <h2 id="atlas-record-heading">候选唱片内页</h2>
+          <p>外圈刻纹随年度作品量起伏。内圈每点是一格百分位，三页共用同一尺度。</p>
+        </header>
+        <div class="atlas-candidate-grid" role="group" aria-label="选择新星候选">
+          <button v-for="(item, index) in predictions" :key="item.act_id" type="button" class="atlas-record" data-wave-surface
+            :aria-pressed="item.act_id === selectedAct" :style="{ '--record-ink': COLORS[index % COLORS.length] }"
+            @click="chooseCandidate(item.act_id)">
+            <span class="atlas-record-name">
+              <span class="atlas-record-rank">第 {{ item.rank }} 位</span>
+              <strong>{{ item.name }}</strong>
+              <span>{{ activeYears(item) }}有作品活动</span>
+            </span>
+            <RecordPlate :artist="item" :dimensions="dimensions" :years="recordYears"
+              :yearly-max="recordPeak" :cumulative-max="recordCareerMax" />
+            <span class="journal-record-footer">
+              <span>重采样首位 <strong>{{ percent(item.bootstrap_rank1_share) }}</strong></span>
+              <span>档案<AppIcon name="arrow" :size="15" /></span>
+            </span>
+          </button>
+        </div>
+        <div class="journal-record-weights" aria-label="综合分的六维权重">
+          <span>评分权重</span>
+          <span v-for="dimension in dimensions" :key="dimension.key">
+            <i :style="{ background: dimension.color }" />{{ dimension.label }} {{ percent(meta.composite_weights?.[dimension.key]) }}
+          </span>
+        </div>
       </section>
+      <p v-else class="op-state">当前模型结果没有可展示的候选。</p>
 
-      <section class="chart-grid">
-        <article class="chart-card wide">
-          <header>
-            <h3>三位艺人的职业轨迹</h3>
-            <p>实线：累计上榜作品 · 虚线：累计登榜作品</p>
-          </header>
-          <div ref="trajectoryEl" class="chart chart-lg" />
-        </article>
+      <aside class="journal-model-band" aria-label="预测与回测说明">
+        <div>
+          <h2>预测如何读</h2>
+          <p>综合分是六维百分位的加权比较。重采样首位比例衡量排名稳定性，未来五年的实际登榜结果待观测。</p>
+        </div>
+        <div class="journal-model-backtest">
+          <span>历史回测 AUC <strong>{{ decimal(cv.auc, 3) }}</strong></span>
+          <span>回测样本 <strong>{{ formatCount(cv.n_samples) }}</strong></span>
+          <button class="atlas-inline" type="button" @click="openValidation">查看检验和系数<AppIcon name="arrow" :size="15" /></button>
+        </div>
+      </aside>
 
-        <article class="chart-card">
+      <div class="journal-interlude">
+        <h2>把候选放回职业轨迹</h2>
+        <p>上榜作品按发行年累积，表示作品曾被热门榜单收录。已知年份登榜按原始榜单年份计，缺失年份保持未知。</p>
+      </div>
+      <div class="op-grid atlas-graph-grid atlas-rising-main">
+        <section class="op-card">
           <header>
-            <h3>Top3 能力雷达</h3>
-            <p>各维度为 2040 年 Oceanus Folk 参照群体的百分位</p>
+            <div><h3>两位参照与所选候选</h3><p>用同一年份和尺度对照三位艺人的职业轨迹</p></div>
+            <div class="atlas-segments" role="group" aria-label="职业轨迹指标">
+              <button v-for="metric in careerMetrics" :key="metric.key" type="button"
+                :aria-pressed="careerMetric === metric.key" @click="careerMetric = metric.key">{{ metric.label }}</button>
+            </div>
           </header>
-          <div ref="radarEl" class="chart chart-lg" />
-        </article>
-      </section>
+          <ChartPanel v-if="comparison.length" :option="trajectoryOption" height="292px" />
+          <p v-else class="op-state">没有可对比的职业轨迹。</p>
+        </section>
+        <aside v-if="candidate" class="op-card atlas-candidate-detail" aria-label="候选档案">
+          <div class="atlas-inspector-top"><span>候选档案</span><span>第 {{ candidate.rank }} 位</span></div>
+          <h2>{{ candidate.name }}</h2>
+          <div class="atlas-model-stats">
+            <div><span>Logistic 模型输出</span><strong>{{ decimal(candidate.model_probability, 3) }}</strong></div>
+            <div><span>重采样获首比例</span><strong>{{ percent(candidate.bootstrap_rank1_share) }}</strong></div>
+          </div>
+          <h3>六维百分位</h3>
+          <dl class="atlas-dimension-grid">
+            <div v-for="dimension in dimensions" :key="dimension.key">
+              <dt><i :style="{ background: dimension.color }" />{{ dimension.label }}</dt>
+              <dd>{{ decimal(candidate.strength_percentiles?.[dimension.key], 0) }}</dd>
+            </div>
+          </dl>
+          <details class="atlas-candidate-evidence">
+            <summary>查看成员与推荐依据</summary>
+            <p v-if="candidate.member_names?.length">{{ candidate.member_names.join('、') }}</p>
+            <ul><li v-for="line in candidate.evidence" :key="line">{{ line }}</li></ul>
+          </details>
+        </aside>
+      </div>
 
-      <section class="chart-grid">
-        <article class="chart-card">
-          <header>
-            <h3>2040 年 Oceanus Folk 综合分排行</h3>
-            <p>蓝色：未登榜候选 · 灰色：已登榜艺人</p>
-          </header>
-          <div ref="leaderboardEl" class="chart chart-lg" />
-        </article>
+      <div class="op-grid even atlas-secondary-grid">
+        <section class="op-card">
+          <header><h3>候选能力对比</h3><p>参照群体内的百分位</p></header>
+          <ChartPanel v-if="predictions.length" :option="radarOption" height="295px"
+            @chart-click="params => chooseCandidate(params.data?.actId)" />
+          <p v-else class="op-state">没有可对比的候选。</p>
+        </section>
+        <section class="op-card">
+          <header><h3>Oceanus Folk 综合分排行</h3><p>深蓝为所选候选，灰色为已有登榜记录</p></header>
+          <ChartPanel v-if="leaderboard.length" :option="leaderboardOption" height="295px"
+            @chart-click="params => chooseCandidate(params.data?.actId)" />
+          <p v-else class="op-state">没有可用的排行记录。</p>
+        </section>
+      </div>
 
-        <article class="chart-card">
-          <header>
-            <h3>统计检验</h3>
-            <p>Mann–Whitney U + BH-FDR · Logistic 系数</p>
-          </header>
-          <div class="table-wrap">
-            <table>
-              <thead>
-                <tr><th>特征</th><th>正/负均值</th><th>p</th><th>q</th></tr>
-              </thead>
-              <tbody>
-                <tr v-for="row in univariate" :key="row.feature">
-                  <td>{{ labelOf(row.feature) }}</td>
-                  <td>{{ row.mean_positive.toFixed(2) }} / {{ row.mean_negative.toFixed(2) }}</td>
-                  <td>{{ row.p_value.toExponential(1) }}</td>
-                  <td>{{ row.p_fdr.toFixed(3) }}</td>
-                </tr>
-              </tbody>
+      <details ref="validationCard" class="op-card atlas-validation">
+        <summary>历史回溯与统计检验</summary>
+        <p>综合分来自六维百分位加权。Logistic 模型基于历史五年回溯，预测期暂无真实结果。</p>
+        <div class="op-grid even">
+          <div class="op-scroll">
+            <table class="op-table">
+              <thead><tr><th>特征</th><th>正 / 负均值</th><th>p 值</th><th>FDR q 值</th></tr></thead>
+              <tbody><tr v-for="row in validation.univariate?.tests ?? []" :key="row.feature">
+                <td>{{ labelOf(row.feature) }}</td><td>{{ decimal(row.mean_positive) }} / {{ decimal(row.mean_negative) }}</td>
+                <td>{{ row.p_value.toExponential(1) }}</td><td>{{ decimal(row.p_fdr, 3) }}</td>
+              </tr></tbody>
             </table>
           </div>
-          <div class="table-wrap">
-            <table>
-              <thead>
-                <tr><th>模型特征</th><th>系数</th><th>OR</th></tr>
-              </thead>
-              <tbody>
-                <tr v-for="row in coefficients" :key="row.feature">
-                  <td>{{ labelOf(row.feature) }}</td>
-                  <td>{{ row.coefficient.toFixed(3) }}</td>
-                  <td>{{ row.odds_ratio.toFixed(3) }}</td>
-                </tr>
-              </tbody>
+          <div class="op-scroll">
+            <table class="op-table">
+              <thead><tr><th>Logistic 特征</th><th>系数</th><th>优势比</th></tr></thead>
+              <tbody><tr v-for="row in validation.coefficients ?? []" :key="row.feature">
+                <td>{{ labelOf(row.feature) }}</td><td>{{ decimal(row.coefficient, 3) }}</td><td>{{ decimal(row.odds_ratio, 3) }}</td>
+              </tr></tbody>
             </table>
           </div>
-        </article>
-      </section>
-
-      <footer class="note">
-        <p>
-          说明：综合分是 6 个维度百分位的加权和，权重见
-          <code>pipeline/features.py</code>；Logistic 模型仅作独立验证。预测窗口内没有真值，
-          验证采用 2040 年前的历史 5 年回溯。
-        </p>
-      </footer>
+        </div>
+      </details>
+      <JournalPager module="rising" />
     </template>
-  </section>
+  </div>
 </template>
-
-<style scoped>
-.rising-star {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-}
-.page-header {
-  display: flex;
-  justify-content: space-between;
-  gap: 24px;
-  align-items: flex-end;
-  flex-wrap: wrap;
-}
-.page-header h2 {
-  margin: 0;
-  font-size: 20px;
-}
-.subtitle {
-  margin: 6px 0 0;
-  color: var(--c-muted);
-  font-size: 13px;
-}
-.kpis {
-  display: flex;
-  gap: 18px;
-}
-.kpi {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  min-width: 68px;
-}
-.kpi-value {
-  font-size: 20px;
-  font-weight: 600;
-  color: var(--c-primary);
-}
-.kpi-label {
-  font-size: 11px;
-  color: var(--c-muted);
-}
-.state {
-  padding: 32px;
-  text-align: center;
-  color: var(--c-muted);
-  background: #fff;
-  border: 1px dashed var(--c-border);
-  border-radius: 10px;
-}
-.state.error {
-  color: #b42318;
-  border-color: #f3c4c0;
-  background: #fff7f6;
-}
-.prediction-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-  gap: 14px;
-}
-.prediction-card {
-  background: #fff;
-  border: 1px solid var(--c-border);
-  border-top: 4px solid var(--c-border);
-  border-radius: 10px;
-  padding: 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-.prediction-card.high { border-top-color: #1a5fb4; }
-.prediction-card.mid { border-top-color: #e67e22; }
-.prediction-card.low { border-top-color: #16a085; }
-.card-head {
-  display: flex;
-  gap: 10px;
-  align-items: flex-start;
-}
-.rank {
-  font-size: 13px;
-  font-weight: 700;
-  color: var(--c-primary);
-  padding-top: 2px;
-}
-.card-title {
-  flex: 1;
-}
-.card-title h3 {
-  margin: 0;
-  font-size: 16px;
-}
-.card-title p {
-  margin: 3px 0 0;
-  font-size: 11px;
-  color: var(--c-muted);
-}
-.score {
-  text-align: right;
-}
-.score strong {
-  display: block;
-  font-size: 24px;
-  color: var(--c-primary);
-  line-height: 1;
-}
-.score span {
-  font-size: 10px;
-  color: var(--c-muted);
-}
-.metric-row {
-  display: flex;
-  justify-content: space-between;
-  font-size: 11px;
-  color: var(--c-muted);
-}
-.strength-bars {
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-}
-.bar-row {
-  display: grid;
-  grid-template-columns: 54px 1fr 26px;
-  gap: 6px;
-  align-items: center;
-  font-size: 10px;
-  color: var(--c-muted);
-}
-.bar-track {
-  height: 5px;
-  background: #eef1f5;
-  border-radius: 999px;
-  overflow: hidden;
-}
-.bar-fill {
-  height: 100%;
-  background: linear-gradient(90deg, #7aa7e0, #1a5fb4);
-  border-radius: 999px;
-}
-.bar-value {
-  text-align: right;
-}
-.evidence {
-  margin: 0;
-  padding-left: 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  font-size: 11px;
-  color: #444;
-  line-height: 1.5;
-}
-.members {
-  display: flex;
-  gap: 8px;
-  font-size: 11px;
-  color: var(--c-muted);
-  border-top: 1px dashed var(--c-border);
-  padding-top: 8px;
-}
-.members-label {
-  color: #999;
-  flex-shrink: 0;
-}
-.chart-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 14px;
-}
-.chart-card {
-  background: #fff;
-  border: 1px solid var(--c-border);
-  border-radius: 10px;
-  padding: 14px 16px;
-  min-width: 0;
-}
-.chart-card header h3 {
-  margin: 0;
-  font-size: 14px;
-}
-.chart-card header p {
-  margin: 3px 0 0;
-  font-size: 11px;
-  color: var(--c-muted);
-}
-.chart {
-  width: 100%;
-}
-.chart-lg {
-  height: 300px;
-}
-.table-wrap {
-  max-height: 210px;
-  overflow: auto;
-  margin-top: 10px;
-}
-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 11px;
-}
-th,
-td {
-  text-align: left;
-  padding: 6px 8px;
-  border-bottom: 1px solid #f1f1f1;
-  white-space: nowrap;
-}
-th {
-  color: var(--c-muted);
-  font-weight: 500;
-  position: sticky;
-  top: 0;
-  background: #fff;
-}
-.note {
-  color: var(--c-muted);
-  font-size: 11px;
-  line-height: 1.7;
-}
-@media (max-width: 900px) {
-  .chart-grid {
-    grid-template-columns: 1fr;
-  }
-  .page-header {
-    align-items: flex-start;
-  }
-}
-</style>

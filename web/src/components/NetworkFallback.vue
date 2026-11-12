@@ -9,6 +9,7 @@ import {
   watch,
 } from "vue";
 import { useAppStore } from "../stores/useAppStore";
+import { useReadingPause, useVisibleMotion } from "../lib/ambientMotion";
 import { NODE_COLORS, NODE_LABELS, INFLUENCE_EDGE_TYPES } from "../lib/palette";
 import AppIcon from "./AppIcon.vue";
 
@@ -36,6 +37,9 @@ const tooltipStyle = computed(() => ({
   left: `${tooltipPosition.value.x}px`,
   top: `${tooltipPosition.value.y}px`,
 }));
+const reading = useReadingPause();
+const inViewport = useVisibleMotion(() => root.value);
+const idleMotion = computed(() => store.motionEnabled && inViewport.value && !reading.paused.value);
 let ctx,
   observer,
   frame,
@@ -145,24 +149,16 @@ function rebuild() {
 function project(node, time) {
   const sizeX = width * (width < 600 ? 0.66 : 0.73) * camera.zoom,
     sizeY = height * 0.68 * camera.zoom;
-  const sway = store.motionEnabled
+  const sway = idleMotion.value
     ? Math.sin(time * 0.34 + hash(node.id) * 6.28) * 0.003
     : 0;
   const x = node.nx,
     y = node.ny + sway,
     z = node.nz;
-  const pointerYaw =
-      store.motionEnabled && pointer.active
-        ? (pointer.x / width - 0.5) * 0.055
-        : 0,
-    pointerPitch =
-      store.motionEnabled && pointer.active
-        ? (pointer.y / height - 0.5) * 0.04
-        : 0;
-  const coY = Math.cos(camera.y + pointerYaw),
-    siY = Math.sin(camera.y + pointerYaw),
-    coX = Math.cos(camera.x + pointerPitch),
-    siX = Math.sin(camera.x + pointerPitch);
+  const coY = Math.cos(camera.y),
+    siY = Math.sin(camera.y),
+    coX = Math.cos(camera.x),
+    siX = Math.sin(camera.x);
   const rx = x * coY - z * siY,
     rz = x * siY + z * coY,
     ry = y * coX - rz * siX,
@@ -209,7 +205,7 @@ function background() {
 function draw(now) {
   if (!ctx || !width || !height) return;
   const time = now / 1000;
-  const easing = store.motionEnabled ? 0.055 : 1;
+  const easing = idleMotion.value ? 0.055 : 1;
   camera.x += (camera.tx - camera.x) * easing;
   camera.y += (camera.ty - camera.y) * easing;
   ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
@@ -272,7 +268,7 @@ function draw(now) {
     )
       flowEdges.push({ a, b, cx, cy, color, phase: edge.phase });
   }
-  if (store.motionEnabled) {
+  if (idleMotion.value) {
     for (const edge of flowEdges) {
       const p = (time * 0.19 + edge.phase) % 1;
       for (let trail = 4; trail >= 0; trail--) {
@@ -331,7 +327,7 @@ function draw(now) {
       ctx.arc(
         node.sx,
         node.sy,
-        r + 5 + (store.motionEnabled ? Math.sin(time * 1.8) * 1.5 : 0),
+        r + 5 + (idleMotion.value ? Math.sin(time * 1.8) * 1.5 : 0),
         0,
         Math.PI * 2,
       );
@@ -366,7 +362,7 @@ function draw(now) {
 function loop(now) {
   frame = requestAnimationFrame(loop);
   if (!active || !visible || document.hidden || now - lastFrame < 32) return;
-  if (!store.motionEnabled && !dirty) return;
+  if (!idleMotion.value && !dirty) return;
   lastFrame = now;
   draw(now);
 }
@@ -491,7 +487,7 @@ watch([() => props.focusId, () => props.flowDirection], () => {
   dirty = true;
 });
 watch(
-  () => store.motionEnabled,
+  idleMotion,
   () => {
     dirty = true;
   },
@@ -523,6 +519,7 @@ onBeforeUnmount(() => {
     ref="root"
     class="network-canvas-root"
     :class="{ 'is-dragging': dragging }"
+    v-on="reading.events"
   >
     <canvas
       ref="canvas"
