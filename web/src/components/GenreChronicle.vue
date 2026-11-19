@@ -1,8 +1,9 @@
 <script setup>
-import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { area, curveMonotoneX } from 'd3'
-import { FLOW_TONES, observeChartSize } from '../lib/atlas'
-import { formatCount, genreColor } from '../lib/palette'
+import { observeChartSize } from '../lib/atlas'
+import { formatCount } from '../lib/palette'
+import { directionColors as FLOW_TONES, scoreGenreColor as genreColor } from '../lib/genreScorePalette'
 import AppIcon from './AppIcon.vue'
 
 const props = defineProps({
@@ -21,8 +22,8 @@ const scrollOffset = ref(0)
 const hovered = ref(null)
 let stopMeasuring
 let positioned = false
-const firstLane = 111
-const laneSpacing = 69
+const firstLane = 102
+const laneSpacing = 89
 const width = computed(() => Math.max(590, measuredWidth.value))
 const height = computed(() => firstLane + props.tracks.length * laneSpacing)
 const minYear = computed(() => props.years[0] ?? 1975)
@@ -53,12 +54,24 @@ const bands = computed(() => props.tracks.map((track, index) => {
     .y1(row => y - magnitude(row.value) * scale).curve(curveMonotoneX)(track.rows)
   const points = track.rows.filter(row => row.value > 0)
   const peak = points.reduce((best, row) => !best || row.value > best.value ? row : best, null)
-  return { ...track, index, y, color, outer: shape(1), inner: shape(.64), points, peak }
+  return { ...track, index, y, color, outer: shape(1),
+    contours: [.86, .68, .50, .32, .14].map(shape), points, peak }
 }))
 const focusBand = computed(() => bands.value.find(band => band.name === props.featuredGenre) ?? bands.value[0])
 const activeYear = computed(() => hovered.value?.year ?? props.selectedYear ?? focusBand.value?.peak?.year)
 const activeGenre = computed(() => hovered.value?.genre || props.selectedGenre || focusBand.value?.name)
 const activeRow = computed(() => bands.value.find(band => band.name === activeGenre.value)?.rows.find(row => row.year === activeYear.value))
+const yearMix = computed(() => {
+  const bins = new Map(props.years.map(year => [year, { year, out: 0, in: 0 }]))
+  for (const flow of props.flows) {
+    const bin = bins.get(flow.year)
+    if (!bin) continue
+    if (flow.source === activeGenre.value) bin.out += flow.value
+    if (flow.target === activeGenre.value) bin.in += flow.value
+  }
+  const rows = [...bins.values()]
+  return { rows, max: Math.max(1, ...rows.map(row => Math.max(row.out, row.in))), active: bins.get(activeYear.value) }
+})
 const routes = computed(() => {
   const lanes = new Map(bands.value.map(band => [band.name, band]))
   const pairs = new Map()
@@ -130,6 +143,7 @@ onMounted(() => {
   })
 })
 onBeforeUnmount(() => stopMeasuring?.())
+watch(() => props.selectedYear, year => frameYear(year))
 </script>
 
 <template>
@@ -138,13 +152,24 @@ onBeforeUnmount(() => stopMeasuring?.())
       <ol v-if="years.length" class="chronicle-tracks" aria-label="年代谱流派"
         :style="{ '--lane-spacing': laneSpacing + 'px', paddingTop: firstLane - laneSpacing / 2 + 'px' }">
         <li v-for="band in bands" :key="band.name" class="chronicle-genre" :style="{ '--track-color': band.color }"
-          :class="{ 'is-current': band.name === activeGenre }">{{ band.name }}</li>
+          :class="{ 'is-current': band.name === activeGenre }">
+          <svg class="chronicle-label-record" viewBox="-15 -15 30 30" aria-hidden="true">
+            <circle v-for="radius in [12,9,6]" :key="radius" :r="radius" />
+            <circle r="2" class="chronicle-spindle" />
+          </svg>
+          <span>{{ band.name }}<small v-if="band.peak">峰值 {{ formatValue(band.peak.value) }}</small></span>
+        </li>
       </ol>
       <div ref="viewport" class="chronicle-viewport" tabindex="0" aria-label="横向流派年代谱，可横向滚动浏览年份"
         @pointerleave="hovered = null" @scroll.passive="scrollOffset = $event.currentTarget.scrollLeft">
       <svg v-if="years.length" :viewBox="`0 0 ${width} ${height}`" :width="width" :height="height" role="group"
         aria-label="从左往右读年份，各行的色带使用同一尺度">
         <defs>
+          <linearGradient v-for="band in bands" :key="band.name" :id="'score-band-' + band.index" gradientUnits="userSpaceOnUse"
+            x1="0" x2="0" :y1="band.y - 27" :y2="band.y + 27">
+            <stop offset="0" :stop-color="band.color" stop-opacity=".12" /><stop offset=".48" :stop-color="band.color" stop-opacity=".94" />
+            <stop offset=".57" :stop-color="band.color" stop-opacity=".55" /><stop offset="1" :stop-color="band.color" stop-opacity=".12" />
+          </linearGradient>
           <marker v-for="(color, side) in FLOW_TONES" :id="'chronicle-arrow-' + side" :key="side"
             viewBox="0 0 7 7" refX="6" refY="3.5" markerWidth="6" markerHeight="6" markerUnits="userSpaceOnUse" orient="auto">
             <path d="M0 0L7 3.5L0 7Z" :fill="color" />
@@ -160,10 +185,11 @@ onBeforeUnmount(() => stopMeasuring?.())
             :x2="yearX(activeYear)" y1="67" :y2="height - 27" />
         </g>
         <g v-for="band in bands" :key="band.name" class="chronicle-lane" :class="{ 'is-current': band.name === activeGenre }">
-          <line :x1="left" :x2="right" :y1="band.y" :y2="band.y" />
-          <path v-if="band.outer" :d="band.outer" class="chronicle-band" :fill="band.color" :stroke="band.color"
+          <line v-for="offset in [-14,-7,0,7,14]" :key="offset" class="chronicle-stave"
+            :x1="left" :x2="right" :y1="band.y + offset" :y2="band.y + offset" />
+          <path v-if="band.outer" :d="band.outer" class="chronicle-band" :fill="'url(#score-band-' + band.index + ')'" :stroke="band.color"
             @click="selectBand($event, band)" />
-          <path v-if="band.inner" :d="band.inner" class="chronicle-contour" :stroke="band.color" />
+          <path v-for="(contour,index) in band.contours" :key="index" :d="contour" class="chronicle-contour" :stroke="band.color" />
         </g>
         <g v-for="route in routes" :key="route.key" class="chronicle-route" role="button" tabindex="0"
           :aria-label="route.year + ' 年，' + route.source + ' 到 ' + route.target + '，' + route.value + ' 条引用'"
@@ -172,6 +198,7 @@ onBeforeUnmount(() => stopMeasuring?.())
           <path :d="route.path" stroke="transparent" stroke-width="13" />
           <path :d="route.path" :stroke="FLOW_TONES[route.side]" :stroke-width="1.1 + Math.sqrt(route.value) * .45"
             :marker-end="'url(#chronicle-arrow-' + route.side + ')'" />
+          <path v-if="hovered" class="chronicle-signal" :d="route.path" pathLength="1" :stroke="FLOW_TONES[route.side]" />
         </g>
         <g v-for="band in bands" :key="'sample-' + band.name">
           <g v-for="point in band.points" :key="point.year" class="chronicle-point"
@@ -185,6 +212,9 @@ onBeforeUnmount(() => stopMeasuring?.())
             @keydown.left="moveSample($event, band, point, -1)" @keydown.right="moveSample($event, band, point, 1)">
             <circle :cx="yearX(point.year)" :cy="band.y" r="7" fill="transparent" />
             <circle :cx="yearX(point.year)" :cy="band.y" :r="point.year === band.peak.year ? 3 : 1.7" :fill="band.color" />
+            <circle v-if="point.year === band.peak.year" class="chronicle-peak-halo" :cx="yearX(point.year)" :cy="band.y" r="7" :stroke="band.color" />
+            <line v-if="point.year === band.peak.year" :x1="yearX(point.year) + 2.7" :x2="yearX(point.year) + 2.7"
+              :y1="band.y" :y2="band.y - 20" :stroke="band.color" />
           </g>
         </g>
         <g v-if="peakNote" class="chronicle-peak" role="button" tabindex="0" :aria-label="peakNote.year + ' 年峰值，查看证据'"
@@ -209,6 +239,21 @@ onBeforeUnmount(() => stopMeasuring?.())
         查看该年证据<AppIcon name="arrow" :size="15" />
       </button>
     </div>
+    <div v-if="years.length" class="chronicle-scrub">
+      <div class="chronicle-cue-year"><span>定位年份</span><strong>{{ activeYear ?? minYear }}</strong></div>
+      <label class="chronicle-cue-track">
+        <svg :viewBox="'0 0 ' + (years.length * 10) + ' 64'" preserveAspectRatio="none" aria-hidden="true">
+          <path :d="'M0 32H' + years.length * 10" stroke="#546780" vector-effect="non-scaling-stroke" />
+          <g v-for="(bin, index) in yearMix.rows" :key="bin.year">
+            <line v-if="bin.out" :x1="index * 10 + 5" :x2="index * 10 + 5" y1="30" :y2="30 - 26 * bin.out / yearMix.max" :stroke="FLOW_TONES.out" />
+            <line v-if="bin.in" :x1="index * 10 + 5" :x2="index * 10 + 5" y1="34" :y2="34 + 26 * bin.in / yearMix.max" :stroke="FLOW_TONES.in" />
+          </g>
+        </svg>
+        <input type="range" :min="minYear" :max="maxYear" :value="activeYear ?? minYear" aria-label="年代谱定位年份"
+          @input="selectYear(Number($event.target.value), activeGenre)" />
+      </label>
+      <div class="chronicle-cue-count"><b>{{ activeGenre }}</b><span>流出 {{ formatCount(yearMix.active?.out ?? 0) }} · 流入 {{ formatCount(yearMix.active?.in ?? 0) }}</span></div>
+    </div>
   </div>
 </template>
 
@@ -216,40 +261,57 @@ onBeforeUnmount(() => stopMeasuring?.())
 .genre-chronicle { background: var(--journal-stock); border-block: 1px solid var(--journal-rule); }
 .chronicle-spread { display: flex; }
 .chronicle-tracks {
-  flex: 0 0 clamp(92px, 10.5vw, 145px);
+  flex: 0 0 clamp(132px, 13vw, 168px);
+  box-sizing: border-box;
   margin: 0;
   padding-inline: 10px 7px;
   list-style: none;
   border-right: 1px solid var(--journal-rule);
 }
-.chronicle-viewport { flex: 1; min-width: 0; overflow: auto hidden; scrollbar-width: thin; scrollbar-color: #9db2be #eef3f4; }
+.chronicle-viewport { flex: 1; min-width: 0; overflow: auto hidden; scrollbar-width: thin; scrollbar-color: var(--score-scroll) var(--score-panel); }
 .chronicle-viewport svg { display: block; max-width: none; }
-.chronicle-grid line { stroke: #c4d0d5; stroke-width: 1; }
+.chronicle-grid line { stroke: var(--score-rule); stroke-width: 1; }
 .chronicle-grid g line { stroke-dasharray: 2 5; }
-.chronicle-grid .chronicle-year-guide { stroke: #668c9e; stroke-dasharray: 3 4; }
-.chronicle-grid text { font: 14px Georgia, serif; fill: #536b79; }
-.chronicle-lane line { stroke: #dae4e7; }
-.chronicle-genre { display: flex; align-items: center; height: var(--lane-spacing); font-size: 13px; line-height: 1.2; color: #243f50; overflow-wrap: anywhere; }
+.chronicle-grid .chronicle-year-guide { stroke: var(--score-blue); stroke-dasharray: 3 4; }
+.chronicle-grid text { font: 14px Georgia, serif; fill: var(--score-soft); }
+.chronicle-lane .chronicle-stave { stroke: var(--score-rule);stroke-width:.55;opacity:.65; }
+.chronicle-genre { display: flex; align-items: center; height: var(--lane-spacing); font-size: 13px; line-height: 1.2; color: var(--score-ink); overflow-wrap: normal; }
 .chronicle-genre.is-current { font-weight: 700; }
-.chronicle-genre::before { content: ''; flex: none; width: 6px; height: 6px; margin-right: 6px; border-radius: 50%; background: var(--track-color); }
-.chronicle-band { fill-opacity: .19; stroke-width: .85; stroke-opacity: .65; cursor: pointer; }
-.chronicle-lane.is-current .chronicle-band { fill-opacity: .30; stroke-opacity: .88; }
-.chronicle-contour { fill: none; stroke-width: .8; opacity: .47; pointer-events: none; }
+.chronicle-label-record { flex:0 0 27px;width:27px;height:27px;margin-right:8px;fill:none;stroke:var(--track-color);stroke-width:.7; }
+.chronicle-label-record .chronicle-spindle { fill:var(--track-color);stroke:none; }
+.chronicle-genre small { display:block;font-size:10px;color:var(--score-muted);font-weight:400;margin-top:5px; }
+.chronicle-band { fill-opacity: .055; stroke-width: .9; stroke-opacity: .7; cursor: pointer; transition:fill-opacity 200ms,stroke-opacity 200ms; }
+.chronicle-lane.is-current .chronicle-band { fill-opacity: .12; stroke-opacity: 1; }
+.chronicle-contour { fill: none; stroke-width: .6; opacity: .57; pointer-events: none; }
+.chronicle-grid .chronicle-year-guide { transition:x1 140ms ease-out,x2 140ms ease-out; }
+.chronicle-signal { stroke-width:2;stroke-dasharray:.12 .88;pointer-events:none;animation:chronicle-signal 1.1s ease-out both; }
+@keyframes chronicle-signal { from {stroke-dashoffset:0;opacity:1} to {stroke-dashoffset:-1;opacity:0} }
 .chronicle-route { fill: none; cursor: pointer; outline: none; }
 .chronicle-route path + path { opacity: .77; }
 .chronicle-route:is(:hover, :focus-visible) path + path { stroke: var(--journal-accent); opacity: 1; }
 .chronicle-point { cursor: pointer; outline: none; }
-.chronicle-point:is(.is-current, :focus-visible) circle + circle { stroke: #1e4358; stroke-width: 2; }
+.chronicle-point:is(.is-current, :focus-visible) circle + circle { stroke: var(--score-blue); stroke-width: 2; }
 .chronicle-peak { color: var(--journal-accent); cursor: pointer; outline: none; }
 .chronicle-peak path { fill: none; stroke: currentColor; stroke-width: .95; }
-.chronicle-peak circle { fill: #fffdfa; stroke: currentColor; }
+.chronicle-peak circle { fill: #102034; stroke: currentColor; }
 .chronicle-peak text { fill: currentColor; font-size: 13px; }
 .chronicle-peak:is(:hover, :focus-visible) circle { fill: currentColor; }
 .chronicle-readout { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 3px 10px; padding: 6px 11px; border-top: 1px solid var(--atlas-line); color: var(--atlas-muted); font-size: 13px; }
 .chronicle-readout strong { color: var(--atlas-ink); }
 .chronicle-route-link { text-align: start; }
 .chronicle-route-link i { width: 6px; height: 6px; flex: none; border-radius: 50%; }
+.chronicle-scrub { display:flex;align-items:center;gap:16px;padding:13px;color:var(--score-soft);font-size:12px;border-top:1px solid var(--score-rule); }
+.chronicle-scrub input { min-width:70px;flex:1;accent-color:var(--score-blue);cursor:pointer;height:15px; }
+.chronicle-scrub strong { min-width:33px;font:500 17px Georgia,serif; }
+@media (max-width: 1100px) {
+  .chronicle-label-record { display:none; }
+}
 @media (max-width: 680px) {
-  .chronicle-genre { font-size: 12px; }
+  .chronicle-tracks { flex-basis:102px; }
+  .chronicle-genre { font-size:12px; }
+}
+@media(prefers-reduced-motion:reduce) {
+  .chronicle-band,.chronicle-grid .chronicle-year-guide { transition:none; }
+  .chronicle-signal { animation:none;display:none; }
 }
 </style>
