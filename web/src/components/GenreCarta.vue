@@ -2,6 +2,7 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { area, curveMonotoneY } from 'd3'
 import { observeChartSize } from '../lib/atlas'
+import { scoreGenreColor as genreColor } from '../lib/genreScorePalette'
 import AppIcon from './AppIcon.vue'
 
 const props = defineProps({
@@ -28,7 +29,6 @@ let stopMeasuring
 let measured = false
 watch(() => props.tracks, () => { hovered.value = null })
 
-const colors = ['#78c5e3', '#efb47a', '#79c7ad', '#e3978f', '#bfce8b', '#82a8db', '#d5a0bc', '#b1c9db']
 const axisWidth = 46
 const overviewMode = computed(() => props.tracks.length > 12 && scale.value < 1.45)
 const width = computed(() => Math.round(Math.max(
@@ -82,7 +82,7 @@ const columns = computed(() => props.tracks.map((track, index) => {
     } else segment.push(row)
   }
   if (segment.length) ribbons.push(ribbonShape(segment, x))
-  return { ...track, x, color: colors[(track.colorIndex ?? index) % colors.length], ribbons }
+  return { ...track, x, color: genreColor(track.colorIndex ?? index), ribbons }
 }))
 const guideYears = computed(() => props.years.filter(year =>
   year === minYear.value || year === maxYear.value || (year % 5 === 0 && year - minYear.value > 2 && maxYear.value - year > 2),
@@ -272,7 +272,7 @@ function movePoint(event, laneIndex, year) {
         <defs>
           <marker id="atlas-carta-arrow" viewBox="0 0 8 8" refX="7" refY="4"
             markerWidth="7" markerHeight="7" markerUnits="userSpaceOnUse" orient="auto">
-            <path d="M0 1 7.6 4 0 7 2.1 4Z" fill="#d7edf7" />
+            <path d="M0 1 7.6 4 0 7 2.1 4Z" fill="#4a6d7b" />
           </marker>
         </defs>
         <g aria-hidden="true" class="atlas-carta-columns">
@@ -336,10 +336,10 @@ function movePoint(event, laneIndex, year) {
 <style scoped>
 .atlas-carta-board {
   overflow: hidden;
-  border: 1px solid #30495d;
-  border-radius: 10px;
-  background: #102437;
-  color: #d7e8f2;
+  border: 1px solid var(--score-rule);
+  border-radius: 2px;
+  background: var(--score-panel);
+  color: var(--score-ink);
 }
 .atlas-carta-tools {
   display: flex;
@@ -347,26 +347,26 @@ function movePoint(event, laneIndex, year) {
   flex-wrap: wrap;
   gap: 6px 12px;
   padding: 8px 11px;
-  border-bottom: 1px solid #30495d;
+  border-bottom: 1px solid var(--score-rule);
 }
 .atlas-carta-search, .atlas-carta-zoom { display: flex; align-items: center; gap: 7px; }
 .atlas-carta-search {
   min-width: 0;
-  border: 1px solid #537187;
+  border: 1px solid var(--score-rule);
   border-radius: 6px;
   padding-left: 8px;
-  background: #183247;
+  background: var(--score-panel);
 }
 .atlas-carta-search input {
   min-width: 0;
   width: min(180px, 39vw);
   border: 0;
   background: transparent;
-  color: #f1f9fe;
+  color: var(--score-ink);
   font: inherit;
   font-size: 13px;
 }
-.atlas-carta-search input::placeholder { color: #b5cddd; }
+.atlas-carta-search input::placeholder { color: var(--score-soft); }
 .atlas-carta-tools button, .atlas-carta-readout button {
   display: inline-flex;
   align-items: center;
@@ -375,19 +375,19 @@ function movePoint(event, laneIndex, year) {
   min-width: 34px;
   min-height: 32px;
   padding: 3px 7px;
-  border: 1px solid #537187;
+  border: 1px solid var(--score-rule);
   border-radius: 6px;
-  background: #19374d;
-  color: #edf8ff;
+  background: var(--score-raised);
+  color: var(--score-ink);
   cursor: pointer;
   font: 13px/1.3 system-ui, sans-serif;
   transition: background 150ms ease;
 }
 .atlas-carta-tools button:disabled { opacity: .45; cursor: default; }
-.atlas-carta-tools button:not(:disabled):hover, .atlas-carta-readout button:hover { background: #2b4b61; }
+.atlas-carta-tools button:not(:disabled):hover, .atlas-carta-readout button:hover { background: var(--score-raised); }
 .atlas-carta-search button { border-width: 0 0 0 1px; border-radius: 0 5px 5px 0; }
 .atlas-carta-zoom { margin-left: auto; }
-.atlas-carta-zoom span, .atlas-carta-status { font-size: 13px; color: #bad0e1; }
+.atlas-carta-zoom span, .atlas-carta-status { font-size: 13px; color: var(--score-soft); }
 .atlas-carta-zoom span { min-width: 37px; text-align: center; font-variant-numeric: tabular-nums; }
 .atlas-carta {
   position: relative;
@@ -397,32 +397,32 @@ function movePoint(event, laneIndex, year) {
   height: clamp(490px, 66svh, 710px);
   overflow: hidden;
   min-width: 0;
-  background: radial-gradient(ellipse at 44% 70%, #294b5d, #132c40 63%, #102437);
-  scrollbar-color: #6d8ba0 #172e44;
+  background: var(--score-panel);
+  scrollbar-color: var(--score-scroll) var(--score-panel);
 }
 .atlas-carta-axis, .atlas-carta-viewport { min-height: 0; }
-.atlas-carta-axis { overflow: hidden; border-right: 1px solid #38566c; }
+.atlas-carta-axis { overflow: hidden; border-right: 1px solid var(--score-rule); }
 .atlas-carta-viewport { overflow: auto; scrollbar-width: thin; cursor: grab; user-select: none; }
 .atlas-carta-viewport.is-panning { cursor: grabbing; }
-.atlas-carta-viewport:focus-visible { outline: 2px solid #93cce6; outline-offset: -2px; }
+.atlas-carta-viewport:focus-visible { outline: 2px solid var(--score-blue); outline-offset: -2px; }
 .atlas-carta-viewport svg { display: block; }
 .atlas-carta-columns, .atlas-carta-guides { pointer-events: none; }
-.atlas-carta-guides line { stroke: #507086; stroke-width: 1; opacity: .55; }
-.atlas-carta-axis text { fill: #c1d9e7; font-size: 12px; }
-.atlas-carta-guides .atlas-carta-selected-year { stroke: #bbd6e8; stroke-dasharray: 3 4; opacity: .76; }
-.atlas-carta-genre { display: flex; align-items: center; justify-content: center; gap: 5px; height: 100%; color: #dbe9f1; text-align: center; font-size: 12px; line-height: 1.18; overflow-wrap: anywhere; }
+.atlas-carta-guides line { stroke: var(--score-rule); stroke-width: 1; opacity: .55; }
+.atlas-carta-axis text { fill: var(--score-soft); font-size: 12px; }
+.atlas-carta-guides .atlas-carta-selected-year { stroke: var(--score-gold); stroke-dasharray: 3 4; opacity: .76; }
+.atlas-carta-genre { display: flex; align-items: center; justify-content: center; gap: 5px; height: 100%; color: var(--score-ink); text-align: center; font-size: 12px; line-height: 1.18; overflow-wrap: anywhere; }
 .is-overview .atlas-carta-genre { gap: 3px; font-size: 11px; line-height: 1.08; overflow-wrap: normal; }
 .atlas-carta-genre i { width: 6px; height: 6px; flex: none; border-radius: 50%; }
-.atlas-carta-ribbon { fill-opacity: .35; stroke-width: 1.15; stroke-opacity: .75; cursor: pointer; }
-.is-focused .atlas-carta-ribbon { fill-opacity: .56; stroke-opacity: .94; }
+.atlas-carta-ribbon { fill-opacity: .14; stroke-width: 1.15; stroke-opacity: .75; cursor: pointer; }
+.is-focused .atlas-carta-ribbon { fill-opacity: .24; stroke-opacity: .94; }
 .atlas-carta-track { stroke-width: .7; opacity: .32; pointer-events: none; }
 .atlas-carta-bridge { cursor: pointer; fill: none; outline: none; }
 .atlas-carta-flow { opacity: .8; transition: opacity 140ms ease; stroke-linecap: round; }
 .atlas-carta-bridge.is-context .atlas-carta-flow { opacity: .25; }
-.atlas-carta-bridge:is(:hover, :focus-visible) .atlas-carta-flow { opacity: 1; stroke: #edf9ff; }
+.atlas-carta-bridge:is(:hover, :focus-visible) .atlas-carta-flow { opacity: 1; stroke: var(--score-gold); }
 .atlas-carta-point { cursor: pointer; outline: none; }
 .atlas-carta-sample { opacity: .75; }
-.atlas-carta-point:is(.is-selected, :focus-visible, :hover) .atlas-carta-sample { stroke: #f8fdff; stroke-width: 1.5; opacity: 1; }
+.atlas-carta-point:is(.is-selected, :focus-visible, :hover) .atlas-carta-sample { stroke: var(--score-gold); stroke-width: 1.5; opacity: 1; }
 .atlas-carta-readout {
   position: absolute;
   bottom: 14px;
@@ -434,14 +434,14 @@ function movePoint(event, laneIndex, year) {
   gap: 7px;
   padding: 4px 8px;
   border-radius: 5px;
-  background: #142d41;
-  color: #d6eaf5;
+  background: #132238f2;
+  color: var(--score-ink);
   font-size: 13px;
   pointer-events: none;
 }
-.atlas-carta-readout b { color: #f5c597; font-weight: 600; }
+.atlas-carta-readout b { color: var(--score-gold); font-weight: 600; }
 .atlas-carta-readout button { pointer-events: auto; min-height: 28px; }
-.atlas-carta-board :is(button, input):focus-visible { outline: 2px solid #9cdbf2; outline-offset: -2px; }
+.atlas-carta-board :is(button, input):focus-visible { outline: 2px solid var(--score-blue); outline-offset: -2px; }
 @media (max-width: 620px) { .atlas-carta { height: 456px; } .atlas-carta-zoom { margin-left: 0; } }
 @media (prefers-reduced-motion: reduce) { .atlas-carta-flow { transition: none; } }
 </style>
